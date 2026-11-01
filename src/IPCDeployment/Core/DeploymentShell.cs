@@ -89,12 +89,23 @@ namespace IPCDeployment.Core
             return await runner.RunAsync(config, confirmed, progress, cancellationToken);
         }
 
+        /// <summary>配置编辑器等非部署操作记一行运行日志，不另建日志文件。</summary>
+        public void WriteNote(string level, string message)
+        {
+            if (log == null)
+            {
+                log = CreateLog(logDirectory);
+            }
+            if (log != null)
+            {
+                log.Write(level, string.Empty, message);
+            }
+        }
+
         public DeploymentConfig CurrentConfig
         {
             get { return config; }
-        }
-
-        public ConfigLoadResult LoadResult
+        }        public ConfigLoadResult LoadResult
         {
             get { return loadResult; }
         }

@@ -48,6 +48,7 @@ namespace IPCDeployment.ViewModels
         private string footerText;
         private bool canStart;
         private bool isRunning;
+        private bool isEditorOpen;
         private bool showOverview;
         private bool showGroup;
         private bool showReport;
@@ -300,8 +301,20 @@ namespace IPCDeployment.ViewModels
         }
         public string LogPath { get { return logPath; } private set { SetProperty(ref logPath, value); } }
         public string FooterText { get { return footerText; } private set { SetProperty(ref footerText, value); } }
-        public bool CanStart { get { return canStart; } private set { SetProperty(ref canStart, value); } }
+        public bool CanStart { get { return canStart; } private set { SetProperty(ref canStart, value); OnPropertyChanged("CanStartNow"); } }
         public bool IsRunning { get { return isRunning; } private set { SetProperty(ref isRunning, value); } }
+        public bool IsEditorOpen
+        {
+            get { return isEditorOpen; }
+            set
+            {
+                if (SetProperty(ref isEditorOpen, value))
+                {
+                    OnPropertyChanged("CanStartNow");
+                }
+            }
+        }
+        public bool CanStartNow { get { return canStart && !isEditorOpen; } }
         public bool ShowOverview
         {
             get { return showOverview; }
@@ -352,6 +365,11 @@ namespace IPCDeployment.ViewModels
         public Task LoadDefaultAsync()
         {
             return SelectConfigAsync(defaultConfigPath);
+        }
+
+        public void WriteNote(string level, string message)
+        {
+            shell.WriteNote(level, message);
         }
 
         public async Task SelectConfigAsync(string path)

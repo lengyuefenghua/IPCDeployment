@@ -17,6 +17,7 @@ namespace IPCDeployment
     {
         private readonly DeploymentViewModel viewModel;
         private bool closeConfirmed;
+        private ConfigurationEditorWindow editorWindow;
 
         public MainWindow()
         {
@@ -94,7 +95,33 @@ namespace IPCDeployment
             await viewModel.ReloadAsync();
         }
 
-        private async void DefaultButton_Click(object sender, RoutedEventArgs e)
+        private void EditConfigButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (editorWindow != null)
+            {
+                editorWindow.Activate();
+                return;
+            }
+
+            // 非模态打开：编辑器与主界面共享同一份 config.xml，保存后主界面立即重载。
+            var window = new ConfigurationEditorWindow(viewModel.ConfigPathText, viewModel.WriteNote, ReloadAfterEditorSave)
+            {
+                Owner = this
+            };
+            editorWindow = window;
+            viewModel.IsEditorOpen = true;
+            window.Closed += (s, args) =>
+            {
+                viewModel.IsEditorOpen = false;
+                editorWindow = null;
+            };
+            window.Show();
+        }
+
+        private async void ReloadAfterEditorSave()
+        {
+            await viewModel.ReloadAsync();
+        }        private async void DefaultButton_Click(object sender, RoutedEventArgs e)
         {
             await viewModel.LoadDefaultAsync();
         }
