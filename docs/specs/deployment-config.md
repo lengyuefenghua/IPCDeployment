@@ -2,17 +2,17 @@
 
 ## File and directory
 
-- `config.xml` and `config.sample.xml` live next to `VisionIPC.Deployment.App.exe`.
+- `config.xml` and `config.sample.xml` live next to `IPCDeployment.exe`.
 - The program loads `config.xml` on startup; `config.sample.xml` is a reference and is never loaded automatically.
 - `data/software` stores installers, `data/files` stores copy sources and scripts, and `data/commands` stores executable commands.
 - Data sources resolve under `<application>/data`, regardless of which XML is selected.
-- `logs/` is created at runtime under the application directory, or falls back to `%TEMP%/VisionIPC-Deployment/logs`.
+- `logs/` is created at runtime under the application directory, or falls back to `%TEMP%/IPCDeployment/logs`.
 
 ## Root
 
     <?xml version="1.0" encoding="utf-8"?>
     <Deployment schemaVersion="2.0" mode="preview">
-      <Meta name="VisionIPC 部署" description="示例" />
+      <Meta name="IPCDeployment 部署" description="示例" />
       <Options>
         <LogDirectory>logs</LogDirectory>
       </Options>
@@ -99,10 +99,10 @@ Child element: `Code`.
 - Inline code requires `language` (`cmd` or `powershell`) and does not accept `arguments`.
 - `workingDirectory` is optional and, when present, is a data-relative directory under `commands/`.
 - `.exe` is started directly. `.cmd`/`.bat` use the fixed Windows `cmd.exe`; `.ps1` uses the fixed Windows `powershell.exe` with `-NoProfile -NonInteractive -ExecutionPolicy Bypass -File`.
-- Inline code is written to a temporary script under `%TEMP%\VisionIPC-Deployment\scripts`, executed by the same fixed interpreter, and deleted after execution.
+- Inline code is written to a temporary script under `%TEMP%\IPCDeployment\scripts`, executed by the same fixed interpreter, and deleted after execution.
 - Inline PowerShell uses `$ErrorActionPreference = 'Stop'` and try/catch with exit code 1 by default; `strict="false"` disables that wrapper.
 - Inline CMD receives `@echo off`, `setlocal EnableExtensions`, and `exit /b %errorlevel%`; CMD errors still require explicit `exit /b`.
-- Scripts receive `VISIONIPC_APP_ROOT`, `VISIONIPC_DATA_ROOT`, `VISIONIPC_COMMANDS_DIR`, `VISIONIPC_FILES_DIR`, and `VISIONIPC_CONFIG_PATH`.
+- Scripts receive `IPCDEPLOYMENT_APP_ROOT`, `IPCDEPLOYMENT_DATA_ROOT`, `IPCDEPLOYMENT_COMMANDS_DIR`, `IPCDEPLOYMENT_FILES_DIR`, and `IPCDEPLOYMENT_CONFIG_PATH`.
 - `timeoutMinutes` is 1 to 60; default 10.
 - `successExitCodes` is a comma-separated integer list; default 0.
 - Output is streamed to the log, capped, and redacted. Commands always run; they have no automatic idempotency.
@@ -215,7 +215,7 @@ Attributes: `hive`, `valueName`, `command`, `arguments`, `enabled`.
 ## Logs
 
 - Log files are written under the configured log directory as `deploy-yyyyMMdd-HHmmss-fff.log`.
-- If the primary log directory is not writable, the log falls back to `%TEMP%/VisionIPC-Deployment/logs` and the UI shows a warning.
+- If the primary log directory is not writable, the log falls back to `%TEMP%/IPCDeployment/logs` and the UI shows a warning.
 - The UI keeps the most recent 2000 log lines; the file keeps the complete run log.
 - Every page shows a full-width log panel at the bottom: overview and completion show the global log, while the group page shows the selected task log.
 - The log includes timestamps, levels, task/step ids, exit codes, before/after values, and capped process output.

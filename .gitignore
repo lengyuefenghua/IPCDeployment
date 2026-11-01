@@ -2,6 +2,7 @@
 **/bin/
 **/obj/
 dist/
+build/
 *.log
 
 # Runtime logs

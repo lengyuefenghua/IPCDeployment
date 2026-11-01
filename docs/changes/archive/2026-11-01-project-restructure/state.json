@@ -1,0 +1,9 @@
+{
+  "level": "full",
+  "phase": "finishing",
+  "grilled": true,
+  "planned": true,
+  "reviewed": true,
+  "archived": true,
+  "confirmWaived": false
+}

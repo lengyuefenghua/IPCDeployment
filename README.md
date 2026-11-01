@@ -1,4 +1,4 @@
-# VisionIPC 部署工具
+# 工控机部署工具（IPCDeployment）
 
 解压即用的 Windows 部署工具。程序读取与 exe 同目录的 `config.xml`，按“分组 → 任务 → 步骤”执行安装、复制、注册表、命令、服务、网络、电源、开机自启和延时操作，并用两级进度、日志和执行结果展示真实情况。
 
@@ -11,8 +11,8 @@
 
 ## 快速开始
 
-1. 解压 `dist/VisionIPC-Deployment.zip` 到可写目录。
-2. 双击 `VisionIPC.Deployment.App.exe`，在 UAC 中确认管理员权限。
+1. 解压 `dist/IPCDeployment.zip` 到可写目录。
+2. 双击 `IPCDeployment.exe`，在 UAC 中确认管理员权限。
 3. 程序默认加载同目录的 `config.xml`，显示分组、任务和步骤的总览。
 4. 点击“校验配置”查看预检结果；`preview` 模式只校验和展示，不执行。
 5. 默认 `config.xml` 为 `mode="execute"`，只运行示例 CMD/PowerShell、内嵌代码和 `Delay` 这类只读、无副作用任务；点击“开始部署”并在确认框中确认。
@@ -20,9 +20,8 @@
 
 ## 目录
 
-    VisionIPC-Deployment/
-      VisionIPC.Deployment.App.exe
-      VisionIPC.Deployment.Core.dll
+    IPCDeployment/
+      IPCDeployment.exe
       Wpf.Ui.dll 及其他依赖
       README.md
       config.xml              当前生效配置
@@ -83,7 +82,7 @@
 - 文件模式由扩展名决定解释器；内嵌模式必须写 `language="cmd"` 或 `language="powershell"`。
 - 内嵌 PowerShell 默认注入 `$ErrorActionPreference = 'Stop'` 和 try/catch；`strict="false"` 可关闭。
 - 内嵌 CMD 默认注入 `@echo off`、`setlocal` 和 `exit /b %errorlevel%`；错误处理仍需脚本显式 `exit /b N`。
-- 脚本可以使用 `VISIONIPC_APP_ROOT`、`VISIONIPC_DATA_ROOT`、`VISIONIPC_COMMANDS_DIR`、`VISIONIPC_FILES_DIR`、`VISIONIPC_CONFIG_PATH` 环境变量定位目录。
+- 脚本可以使用 `IPCDEPLOYMENT_APP_ROOT`、`IPCDEPLOYMENT_DATA_ROOT`、`IPCDEPLOYMENT_COMMANDS_DIR`、`IPCDEPLOYMENT_FILES_DIR`、`IPCDEPLOYMENT_CONFIG_PATH` 环境变量定位目录。
 - Network 的高级属性按网卡 NetCfgInstanceId 定位驱动项，不硬编码驱动编号；同一网卡的 SpeedDuplex 必须排在其他高级属性之前。
 - Power 当前支持休眠、快速启动和电源节流；部分设置需要重启。
 - AutoStart 写入 HKCU/HKLM 的 Run 项，下次登录生效。
@@ -130,7 +129,7 @@
 
 - 程序自身不写注册表、不创建卸载项；配置的步骤可以修改目标机。
 - 只执行 `data/` 下的文件；拒绝绝对源路径、`..` 和逃逸 `data/` 的路径。
-- 自定义命令只运行 `data/commands` 下的 `.exe`；不执行 `.bat`、`.cmd`、`.ps1`；不做下载执行。
+- 自定义命令运行 `data/commands` 下的 `.exe`、`.cmd`、`.bat`、`.ps1`，或显式内嵌 cmd/PowerShell；不做下载执行。
 - 系统工具由内部执行器从 Windows System 目录解析，配置不能直接指定任意系统工具。
 - 日志会截断过长输出，并对 password、pwd、token、secret 等值脱敏。
 - preview 不会创建外部进程；execute 必须经过预检、任务摘要和二次确认。
@@ -138,18 +137,21 @@
 ## 日志与报告
 
 - 日志默认写入程序目录 `logs/deploy-时间戳.log`。
-- 主日志目录不可写时会回退到 `%TEMP%/VisionIPC-Deployment/logs`，并在界面提示。
+- 主日志目录不可写时会回退到 `%TEMP%/IPCDeployment/logs`，并在界面提示。
 - 每页底部显示全宽运行日志：总览和完成页显示全局日志，分组页显示当前任务日志。
 - 界面显示当前任务、当前步骤、全局任务进度和任务子进度。
 - 执行结果按分组、任务、步骤展示成功/失败/未执行、耗时、需重启项和日志路径。
 
 ## 开发与打包
 
-    dotnet test VisionIPC.Deployment.sln -c Release
-    dotnet build VisionIPC.Deployment.sln -c Release --no-restore
+    dotnet test IPCDeployment.sln -c Release
+    dotnet build IPCDeployment.sln -c Release --no-restore
+    powershell -ExecutionPolicy Bypass -File scripts/build-debug.ps1
     powershell -ExecutionPolicy Bypass -File scripts/package-portable.ps1
 
-- 输出目录：`dist/VisionIPC-Deployment`；压缩包：`dist/VisionIPC-Deployment.zip`。
+- 项目结构：`src/IPCDeployment`（程序，`Core/` 为不依赖 WPF 的逻辑）与 `tests/IPCDeployment.Tests`（NUnit）。
+- 开发运行目录：`build/debug`，不生成 ZIP。
+- 发布目录：`dist/IPCDeployment`；压缩包：`dist/IPCDeployment.zip`。
 - 发布包包含程序、根目录 XML、`data/` 和 README。
 - 界面验收由用户自行启动程序目视确认，不依赖截图或自动化界面操作。
 

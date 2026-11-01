@@ -13,7 +13,7 @@ Status: accepted
 - `Command` 支持 `data/commands` 下的 `.exe`、`.cmd`、`.bat`、`.ps1`，以及显式 `<Code>` 内嵌 cmd/PowerShell。
 - 解释器固定为 Windows 自带的 `cmd.exe` 和 `powershell.exe`，不接受任意解释器路径。
 - PowerShell 文件和内嵌代码使用 `-ExecutionPolicy Bypass`。
-- 内嵌代码写入 `%TEMP%\VisionIPC-Deployment\scripts`，执行后删除；PowerShell 默认 `$ErrorActionPreference='Stop'`，可用 `strict="false"` 关闭。
+- 内嵌代码写入 `%TEMP%\IPCDeployment\scripts`，执行后删除；PowerShell 默认 `$ErrorActionPreference='Stop'`，可用 `strict="false"` 关闭。
 - 仍然禁止下载执行、绝对脚本路径和 `data/commands` 外的脚本。
 
 ## 后果

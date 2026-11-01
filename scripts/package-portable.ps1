@@ -5,13 +5,13 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
-$publish = Join-Path $root 'dist\VisionIPC-Deployment'
-$zip = Join-Path $root 'dist\VisionIPC-Deployment.zip'
-$build = Join-Path $root ("src\VisionIPC.Deployment.App\bin\{0}\net472" -f $Configuration)
+$publish = Join-Path $root 'dist\IPCDeployment'
+$zip = Join-Path $root 'dist\IPCDeployment.zip'
+$build = Join-Path $root ("src\IPCDeployment\bin\{0}\net472" -f $Configuration)
 $dataSource = Join-Path $root 'data'
 
 if (-not (Test-Path -LiteralPath $build)) {
-    throw ('Build output was not found: ' + $build + '. Run dotnet build VisionIPC.Deployment.sln --configuration ' + $Configuration + '.')
+    throw ('Build output was not found: ' + $build + '. Run dotnet build IPCDeployment.sln --configuration ' + $Configuration + '.')
 }
 if (-not (Test-Path -LiteralPath $dataSource)) {
     throw ('Data directory was not found: ' + $dataSource)

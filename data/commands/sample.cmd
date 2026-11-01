@@ -1,6 +1,6 @@
 @echo off
 setlocal EnableExtensions
-echo VisionIPC sample CMD
+echo IPCDeployment sample CMD
 echo Step 1/3
 ping -n 2 127.0.0.1 >nul
 echo Step 2/3

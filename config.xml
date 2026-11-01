@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Deployment schemaVersion="2.0" mode="execute">
-  <Meta name="VisionIPC 只读验证" description="真实执行配置：只运行只读的 CMD、PowerShell 和示例命令，不安装、不写注册表、不改系统设置。" />
+  <Meta name="IPCDeployment 只读验证" description="真实执行配置：只运行只读的 CMD、PowerShell 和示例命令，不安装、不写注册表、不改系统设置。" />
   <Options>
     <LogDirectory>logs</LogDirectory>
   </Options>
@@ -20,7 +20,7 @@
       <Task key="inline-powershell" name="内嵌 PowerShell">
         <Command id="inline-powershell" name="运行内嵌 PowerShell" language="powershell" timeoutMinutes="5" successExitCodes="0">
           <Code><![CDATA[
-            Write-Output "VisionIPC inline PowerShell"
+            Write-Output "IPCDeployment inline PowerShell"
             Write-Output ("Time: " + (Get-Date).ToString("s"))
           ]]></Code>
         </Command>
@@ -34,7 +34,7 @@
         <Command id="inline-cmd" name="运行内嵌 CMD" language="cmd" timeoutMinutes="5" successExitCodes="0">
           <Code><![CDATA[
             @echo off
-            echo VisionIPC inline CMD
+            echo IPCDeployment inline CMD
             echo Current directory: %CD%
           ]]></Code>
         </Command>
@@ -45,7 +45,7 @@
     </Group>
     <Group key="final" name="完成确认">
       <Task key="run-final" name="最终检查">
-        <Command id="run-final" name="运行示例命令" file="commands/SampleCommand.exe" arguments="--final" timeoutMinutes="5" successExitCodes="0" />
+        <Command id="run-final" name="运行最终脚本" file="commands/sample.ps1" timeoutMinutes="5" successExitCodes="0" />
       </Task>
       <Task key="wait-final" name="最终等待">
         <Delay id="wait-final" name="等待 1 秒" seconds="1" />

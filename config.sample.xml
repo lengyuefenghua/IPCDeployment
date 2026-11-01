@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Deployment schemaVersion="2.0" mode="preview">
-  <Meta name="VisionIPC 完整界面示例" description="包含九类步骤、多个分组和组内任务的完整预览；默认 preview，不会执行。" />
+  <Meta name="IPCDeployment 完整界面示例" description="包含九类步骤、多个分组和组内任务的完整预览；默认 preview，不会执行。" />
   <Options>
     <LogDirectory>logs</LogDirectory>
   </Options>
@@ -17,7 +17,7 @@
       </Task>
       <Task key="sample-command" name="示例命令">
         <Command id="sample-command" name="运行示例命令"
-                 file="commands/SampleCommand.exe" arguments=""
+                 file="commands/sample.cmd"
                  timeoutMinutes="5" successExitCodes="0" />
       </Task>
       <Task key="wait-after-install" name="安装后等待">
@@ -28,20 +28,20 @@
       <Task key="copy-sample-file" name="复制示例文件">
         <Copy id="sample-copy" name="复制示例文件"
               source="files/sample.txt"
-              target="%TEMP%/VisionIPC-Deployment-Sample/sample.txt"
+              target="%TEMP%/IPCDeployment-Sample/sample.txt"
               overwrite="ifDifferent" backup="false" />
       </Task>
       <Task key="copy-sample-directory" name="复制示例目录">
         <Copy id="sample-directory" name="复制示例目录"
               source="files"
-              target="%TEMP%/VisionIPC-Deployment-Sample/files"
+              target="%TEMP%/IPCDeployment-Sample/files"
               overwrite="ifDifferent" backup="false" />
       </Task>
     </Group>
     <Group key="configure" name="软件配置">
       <Task key="sample-registry" name="示例注册表">
         <Registry id="sample-registry" name="写入示例配置"
-                  hive="HKCU" key="Software/VisionIPC/DeploymentSample"
+                  hive="HKCU" key="Software/IPCDeployment/DeploymentSample"
                   valueName="LastRun" valueType="String" value="ok"
                   view="64" />
       </Task>
@@ -66,7 +66,7 @@
     <Group key="startup" name="开机自启">
       <Task key="sample-autostart" name="示例自启">
         <AutoStart id="sample-autostart" name="示例自启（禁用）"
-                   hive="HKCU" valueName="VisionIPC-Sample"
+                   hive="HKCU" valueName="IPCDeployment-Sample"
                    command="%SystemRoot%/System32/notepad.exe"
                    arguments="" enabled="false" />
       </Task>
@@ -74,7 +74,7 @@
     <Group key="commands" name="自定义命令">
       <Task key="sample-commands" name="示例命令">
         <Command id="sample-command-2" name="运行示例命令"
-                 file="commands/SampleCommand.exe" arguments=""
+                 file="commands/sample.ps1"
                  timeoutMinutes="5" successExitCodes="0" />
       </Task>
       <Task key="wait-after-command" name="命令后等待">
@@ -94,8 +94,8 @@
         <Command id="sample-inline-ps" name="运行内嵌 PowerShell"
                  language="powershell" timeoutMinutes="5" successExitCodes="0">
           <Code><![CDATA[
-            Write-Output "VisionIPC sample inline PowerShell"
-            Write-Output ("Data root: " + $env:VISIONIPC_DATA_ROOT)
+            Write-Output "IPCDeployment sample inline PowerShell"
+            Write-Output ("Data root: " + $env:IPCDEPLOYMENT_DATA_ROOT)
           ]]></Code>
         </Command>
       </Task>
@@ -104,8 +104,8 @@
                  language="cmd" timeoutMinutes="5" successExitCodes="0">
           <Code><![CDATA[
             @echo off
-            echo VisionIPC sample inline CMD
-            echo Data root: %VISIONIPC_DATA_ROOT%
+            echo IPCDeployment sample inline CMD
+            echo Data root: %IPCDEPLOYMENT_DATA_ROOT%
           ]]></Code>
         </Command>
       </Task>
@@ -120,7 +120,7 @@
       <Task key="verify-files" name="验证示例文件">
         <Copy id="verify-copy" name="复核示例文件"
               source="files/sample-guide.txt"
-              target="%TEMP%/VisionIPC-Deployment-Sample/verify-guide.txt"
+              target="%TEMP%/IPCDeployment-Sample/verify-guide.txt"
               overwrite="ifDifferent" backup="false" />
       </Task>
       <Task key="wait-finish" name="收尾等待">
