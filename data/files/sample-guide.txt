@@ -1,0 +1,2 @@
+Replace data/config.xml with your deployment configuration.
+The default config.xml is preview mode and does not execute operations.

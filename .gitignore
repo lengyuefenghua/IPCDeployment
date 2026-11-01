@@ -1,0 +1,17 @@
+# Build outputs
+**/bin/
+**/obj/
+dist/
+*.log
+
+# Runtime logs
+logs/
+
+# IDE
+.vs/
+*.user
+
+# Lazy Flow local state
+.opencode/lazy/
+.dsh/lazy/
+docs/changes/**/evidence/

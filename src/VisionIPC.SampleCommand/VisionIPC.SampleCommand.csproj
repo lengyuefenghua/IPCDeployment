@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net472</TargetFramework>
+    <AssemblyName>SampleCommand</AssemblyName>
+    <RootNamespace>VisionIPC.SampleCommand</RootNamespace>
+  </PropertyGroup>
+  <Target Name="CopyToDataCommands" AfterTargets="Build">
+    <Copy SourceFiles="$(TargetPath)" DestinationFiles="$(MSBuildThisFileDirectory)..\..\data\commands\SampleCommand.exe" />
+  </Target>
+</Project>

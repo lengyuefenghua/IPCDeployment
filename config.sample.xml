@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Deployment schemaVersion="2.0" mode="preview">
+  <Meta name="VisionIPC 完整界面示例" description="包含九类步骤、多个分组和组内任务的完整预览；默认 preview，不会执行。" />
+  <Options>
+    <LogDirectory>logs</LogDirectory>
+  </Options>
+  <Groups>
+    <Group key="software" name="软件安装">
+      <Task key="image-viewer" name="ImageViewer">
+        <Install id="image-viewer-install" name="安装 ImageViewer"
+                 file="software/ImageViewer-1.2.0-win-x64-setup.exe"
+                 arguments="/VERYSILENT /SUPPRESSMSGBOXES /NORESTART"
+                 sha256="9F9C3F7F840EDB9087AD6C62FC3CC07189AA7B2B28616977003B42F4BDAE92B1"
+                 timeoutMinutes="15"
+                 successExitCodes="0,3010"
+                 skipIfFileExists="%ProgramFiles%/ImageViewer/ImageViewer.exe" />
+      </Task>
+      <Task key="sample-command" name="示例命令">
+        <Command id="sample-command" name="运行示例命令"
+                 file="commands/SampleCommand.exe" arguments=""
+                 timeoutMinutes="5" successExitCodes="0" />
+      </Task>
+      <Task key="wait-after-install" name="安装后等待">
+        <Delay id="wait-after-install" name="等待安装稳定" seconds="3" />
+      </Task>
+    </Group>
+    <Group key="files" name="文件复制">
+      <Task key="copy-sample-file" name="复制示例文件">
+        <Copy id="sample-copy" name="复制示例文件"
+              source="files/sample.txt"
+              target="%TEMP%/VisionIPC-Deployment-Sample/sample.txt"
+              overwrite="ifDifferent" backup="false" />
+      </Task>
+      <Task key="copy-sample-directory" name="复制示例目录">
+        <Copy id="sample-directory" name="复制示例目录"
+              source="files"
+              target="%TEMP%/VisionIPC-Deployment-Sample/files"
+              overwrite="ifDifferent" backup="false" />
+      </Task>
+    </Group>
+    <Group key="configure" name="软件配置">
+      <Task key="sample-registry" name="示例注册表">
+        <Registry id="sample-registry" name="写入示例配置"
+                  hive="HKCU" key="Software/VisionIPC/DeploymentSample"
+                  valueName="LastRun" valueType="String" value="ok"
+                  view="64" />
+      </Task>
+      <Task key="wait-after-config" name="配置后等待">
+        <Delay id="wait-after-config" name="等待配置生效" seconds="1" />
+      </Task>
+    </Group>
+    <Group key="system" name="系统设置">
+      <Task key="sample-service" name="示例服务">
+        <Service id="sample-service" name="检查示例服务"
+                 serviceName="Dnscache" startupType="Automatic" state="Running" />
+      </Task>
+      <Task key="sample-network" name="示例网卡">
+        <Network id="sample-network" name="检查示例网卡属性"
+                 adapter="以太网 4" kind="AdvancedProperty"
+                 keyword="*JumboPacket" value="9014" valueType="String" />
+      </Task>
+      <Task key="wait-after-system" name="系统设置后等待">
+        <Delay id="wait-after-system" name="等待系统设置生效" seconds="1" />
+      </Task>
+    </Group>
+    <Group key="startup" name="开机自启">
+      <Task key="sample-autostart" name="示例自启">
+        <AutoStart id="sample-autostart" name="示例自启（禁用）"
+                   hive="HKCU" valueName="VisionIPC-Sample"
+                   command="%SystemRoot%/System32/notepad.exe"
+                   arguments="" enabled="false" />
+      </Task>
+    </Group>
+    <Group key="commands" name="自定义命令">
+      <Task key="sample-commands" name="示例命令">
+        <Command id="sample-command-2" name="运行示例命令"
+                 file="commands/SampleCommand.exe" arguments=""
+                 timeoutMinutes="5" successExitCodes="0" />
+      </Task>
+      <Task key="wait-after-command" name="命令后等待">
+        <Delay id="wait-after-command" name="等待命令收尾" seconds="1" />
+      </Task>
+    </Group>
+    <Group key="scripts" name="脚本示例">
+      <Task key="sample-ps1" name="PowerShell 脚本">
+        <Command id="sample-ps1" name="运行 PowerShell 脚本"
+                 file="commands/sample.ps1" timeoutMinutes="5" successExitCodes="0" />
+      </Task>
+      <Task key="sample-cmd-shell" name="CMD 脚本">
+        <Command id="sample-cmd-shell" name="运行 CMD 脚本"
+                 file="commands/sample.cmd" timeoutMinutes="5" successExitCodes="0" />
+      </Task>
+      <Task key="sample-inline-ps" name="内嵌 PowerShell">
+        <Command id="sample-inline-ps" name="运行内嵌 PowerShell"
+                 language="powershell" timeoutMinutes="5" successExitCodes="0">
+          <Code><![CDATA[
+            Write-Output "VisionIPC sample inline PowerShell"
+            Write-Output ("Data root: " + $env:VISIONIPC_DATA_ROOT)
+          ]]></Code>
+        </Command>
+      </Task>
+      <Task key="sample-inline-cmd" name="内嵌 CMD">
+        <Command id="sample-inline-cmd" name="运行内嵌 CMD"
+                 language="cmd" timeoutMinutes="5" successExitCodes="0">
+          <Code><![CDATA[
+            @echo off
+            echo VisionIPC sample inline CMD
+            echo Data root: %VISIONIPC_DATA_ROOT%
+          ]]></Code>
+        </Command>
+      </Task>
+    </Group>
+    <Group key="power" name="电源">
+      <Task key="sample-power" name="示例电源">
+        <Power id="sample-power-setting" name="检查示例电源设置"
+               setting="Hibernate" value="Off" />
+      </Task>
+    </Group>
+    <Group key="verification" name="部署校验">
+      <Task key="verify-files" name="验证示例文件">
+        <Copy id="verify-copy" name="复核示例文件"
+              source="files/sample-guide.txt"
+              target="%TEMP%/VisionIPC-Deployment-Sample/verify-guide.txt"
+              overwrite="ifDifferent" backup="false" />
+      </Task>
+      <Task key="wait-finish" name="收尾等待">
+        <Delay id="wait-finish" name="等待收尾" seconds="2" />
+      </Task>
+    </Group>
+  </Groups>
+</Deployment>
