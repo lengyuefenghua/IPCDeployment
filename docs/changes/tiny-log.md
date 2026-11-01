@@ -11,3 +11,21 @@
 
 - 改动：新增 `scripts/build-debug.ps1`，输出到 `build/debug` 且不生成 ZIP；`build/` 加入 `.gitignore`；`SampleCommand` 只在 Release 构建时复制到 `data/commands`。
 - 验证：`build-debug.ps1` 构建成功，`build/debug` 含程序、根目录 XML、`data/` 和 README；`dotnet test` 70 通过。
+
+## 2026-11-01 集成 logo.ico 图标
+
+- 改动：`logo.ico` 移入 `src/IPCDeployment/`；csproj 增加 `ApplicationIcon` 与 `<Resource>`；`MainWindow` 的窗口和 `ui:TitleBar` 设置 `Icon` 包资源。
+- 验证：Release 构建 0 警告 0 错误；exe 可提取 32x32 关联图标，`IPCDeployment.g.resources` 含 `logo.ico`；`dotnet test` 70 通过。
+
+## 2026-11-01 默认验证改为 Debug
+
+- 改动：`AGENTS.md` 的 Commands 段把日常构建/测试改为 `scripts/build-debug.ps1` 与 `dotnet test -c Debug`，Release 只用于打包前。
+- 验证：`build-debug.ps1` 构建 0 警告 0 错误并生成 `build/debug`；`dotnet test -c Debug` 70 通过。
+
+## 2026-11-01 修复图标不显示
+
+- 改动：`TitleBar.Icon` 由字符串改为显式 `ui:ImageIcon`（IconElement 转换器会把字符串转成 null）；窗口图标改为在 `MainWindow` 构造时取 ICO 的 32x32 帧，避免 WPF 默认取 16x16 帧。
+- 验证：加载 `IPCDeployment.MainWindow` 检查，`Window.Icon` 为 32x32 `BitmapFrameDecode`，`TitleBar.Icon` 为 `ImageIcon` 且 Source 解析成功；`dotnet test -c Debug` 70 通过。
+
+
+

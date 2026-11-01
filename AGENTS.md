@@ -10,12 +10,13 @@
 
 ## Commands
 
-    dotnet test IPCDeployment.sln -c Release
-    dotnet build IPCDeployment.sln -c Release --no-restore
     powershell -ExecutionPolicy Bypass -File scripts/build-debug.ps1
+    dotnet test IPCDeployment.sln -c Debug
+    dotnet build IPCDeployment.sln -c Release --no-restore
     powershell -ExecutionPolicy Bypass -File scripts/package-portable.ps1
 
-- Focused test: `dotnet test IPCDeployment.sln -c Release --filter "FullyQualifiedName~ConfigLoaderTests"`.
+- Debug is the default for daily work: build with `scripts/build-debug.ps1` and test with `-c Debug`; Release is only needed before packaging.
+- Focused test: `dotnet test IPCDeployment.sln -c Debug --filter "FullyQualifiedName~ConfigLoaderTests"`.
 - `dotnet test` builds the app project as a dependency; run the build before packaging. Tests use temp directories and do not touch `data/`.
 - Tests are Windows net472 and use fake process runners plus temp dirs: no admin rights or real system changes needed.
 - Do not launch the app or run deployment operations during verification; build, test, package, and inspect files only. Real changes happen manually on a representative machine.
@@ -38,6 +39,7 @@
 - Keep the Fluent-light direction: light title bar, light content, group rail, task list, step list, light full-width bottom log, report.
 - WPF-UI templates need `ApplicationAccentColorManager.ApplySystemAccent()` in `App.OnStartup` before any window is created.
 - UI changes need a textual layout sketch before code; tiny style tweaks are exempt. Acceptance is manual: never use screenshots, automated window/control-tree inspection, or keyboard/mouse automation, and never promise screenshot evidence.
+- wpfui source code:C:\Users\wtg\Documents\wpfui-4.3.0\src
 
 ## Lazy Flow
 

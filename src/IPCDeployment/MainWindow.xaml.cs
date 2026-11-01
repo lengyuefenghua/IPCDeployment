@@ -4,6 +4,9 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Windows;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Resources;
 using Microsoft.Win32;
 using IPCDeployment.ViewModels;
 using Wpf.Ui.Controls;
@@ -18,11 +21,30 @@ namespace IPCDeployment
         public MainWindow()
         {
             InitializeComponent();
+            // ICO 多帧时 WPF 默认取 16x16 帧，任务栏与 Alt-Tab 会模糊，这里显式取 32x32 帧。
+            Icon = LoadWindowIcon();
             viewModel = new DeploymentViewModel(AppDomain.CurrentDomain.BaseDirectory);
             DataContext = viewModel;
             viewModel.PropertyChanged += ViewModel_PropertyChanged;
             Loaded += MainWindow_Loaded;
             Closing += MainWindow_Closing;
+        }
+
+        private static ImageSource LoadWindowIcon()
+        {
+            StreamResourceInfo resource =
+                Application.GetResourceStream(new Uri("pack://application:,,,/logo.ico", UriKind.Absolute));
+            IconBitmapDecoder decoder =
+                new IconBitmapDecoder(resource.Stream, BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
+            foreach (BitmapFrame frame in decoder.Frames)
+            {
+                if (frame.PixelWidth == 32)
+                {
+                    return frame;
+                }
+            }
+
+            return decoder.Frames[decoder.Frames.Count - 1];
         }
 
         private async void MainWindow_Loaded(object sender, RoutedEventArgs e)

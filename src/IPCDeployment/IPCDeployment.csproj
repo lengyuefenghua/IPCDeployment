@@ -4,9 +4,13 @@
     <TargetFramework>net472</TargetFramework>
     <UseWPF>true</UseWPF>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>logo.ico</ApplicationIcon>
     <AssemblyName>IPCDeployment</AssemblyName>
     <RootNamespace>IPCDeployment</RootNamespace>
   </PropertyGroup>
+  <ItemGroup>
+    <Resource Include="logo.ico" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="WPF-UI" Version="4.3.0" />
   </ItemGroup>
