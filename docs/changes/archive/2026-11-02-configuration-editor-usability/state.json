@@ -1,0 +1,9 @@
+{
+  "level": "patch",
+  "phase": "finishing",
+  "grilled": false,
+  "planned": true,
+  "reviewed": true,
+  "archived": true,
+  "confirmWaived": false
+}
