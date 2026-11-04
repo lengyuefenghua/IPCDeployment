@@ -14,8 +14,36 @@
   <ItemGroup>
     <PackageReference Include="WPF-UI" Version="4.3.0" />
   </ItemGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DebugType>None</DebugType>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="System.Management" />
     <Reference Include="System.ServiceProcess" />
   </ItemGroup>
+
+  <!--
+    把随程序集复制的托管 DLL 内嵌进 exe，运行期由 EmbeddedAssemblyLoader 从资源流加载。
+    必须在 AssignTargetPaths 之前加入 EmbeddedResource，否则资源项缺少 Type/WithCulture 元数据，
+    csc 不会把它编译进程序集。
+    注意：ReferenceCopyLocalPaths 不保证带 Culture 元数据，这里只按扩展名过滤；
+    若将来引入带本地化卫星程序集的依赖，同名资源会在编译期报重复，届时再按 DestinationSubDirectory 处理。
+  -->
+  <Target Name="EmbedManagedDependencies" BeforeTargets="AssignTargetPaths" DependsOnTargets="ResolveReferences">
+    <ItemGroup>
+      <EmbeddedResource Include="@(ReferenceCopyLocalPaths)"
+                        Condition="'%(Extension)' == '.dll'">
+        <LogicalName>IPCDeployment.Resources.%(Filename)%(Extension)</LogicalName>
+        <Visible>false</Visible>
+      </EmbeddedResource>
+    </ItemGroup>
+  </Target>
+
+  <!-- 已内嵌的 DLL 不再复制到输出目录，避免现场同时存在“磁盘副本”和“内嵌副本”。 -->
+  <Target Name="RemoveEmbeddedDependenciesFromOutput" BeforeTargets="_CopyFilesMarkedCopyLocal" DependsOnTargets="EmbedManagedDependencies">
+    <ItemGroup>
+      <ReferenceCopyLocalPaths Remove="@(ReferenceCopyLocalPaths)"
+                               Condition="'%(Extension)' == '.dll'" />
+    </ItemGroup>
+  </Target>
 </Project>

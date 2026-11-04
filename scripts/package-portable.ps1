@@ -45,5 +45,9 @@ if (-not (Get-ChildItem -LiteralPath $dataTarget -Force | Select-Object -First 1
     throw 'The packaged data directory is empty.'
 }
 
+# 依赖 DLL 已内嵌进 exe；清掉历史构建可能残留的顶层副本，避免现场仍从磁盘加载。
+Get-ChildItem -LiteralPath $publish -File -Filter '*.pdb' | Remove-Item -Force
+Get-ChildItem -LiteralPath $publish -File -Filter '*.dll' | Remove-Item -Force
+
 Compress-Archive -Path (Join-Path $publish '*') -DestinationPath $zip -CompressionLevel Optimal
 Write-Output ('Created portable package: ' + $zip)
