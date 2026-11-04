@@ -761,7 +761,7 @@ DWORD:1
                 $rtpRoot = Join-Path $policyRoot 'Real-Time Protection'
                 $antiSpyware = Get-ItemProperty -Path $policyRoot -Name 'DisableAntiSpyware' -ErrorAction SilentlyContinue
                 if ($null -eq $antiSpyware -or $antiSpyware.DisableAntiSpyware -ne 1) {
-                    Write-Output '提示：DisableAntiSpyware 未写入实时注册表；Win10 1903+ 可能忽略此策略，但本地组策略已写入。'
+                    Write-Output '提示：DisableAntiSpyware 未写入实时注册表；Win10 1903+ 客户端版忽略此策略，属正常，不影响关闭实时保护。'
                 }
 
                 $checks = @(
@@ -799,11 +799,21 @@ DWORD:1
                 }
                 throw '无法读取 Defender 状态，且 WinDefend 服务未停止。'
             }
-            if ($status.RealTimeProtectionEnabled -or $status.AntivirusEnabled) {
-                throw ("Defender 仍启用：RealTimeProtectionEnabled=" + $status.RealTimeProtectionEnabled +
-                    "，AntivirusEnabled=" + $status.AntivirusEnabled + "。请先关闭篡改保护后重试。")
+
+            Write-Output ("Defender 状态：实时保护=" + $status.RealTimeProtectionEnabled +
+                "，行为监控=" + $status.BehaviorMonitorEnabled +
+                "，IOAV=" + $status.IoavProtectionEnabled +
+                "，按访问保护=" + $status.OnAccessProtectionEnabled +
+                "，AntivirusEnabled=" + $status.AntivirusEnabled +
+                "，运行模式=" + $status.AMRunningMode +
+                "，篡改保护=" + $status.IsTamperProtected)
+
+            if ($status.RealTimeProtectionEnabled -ne $false) {
+                throw ("Defender 实时保护未确认关闭（实时保护=" + $status.RealTimeProtectionEnabled +
+                    "，篡改保护=" + $status.IsTamperProtected +
+                    "，运行模式=" + $status.AMRunningMode + "）。请先关闭篡改保护后重试。")
             }
-            Write-Output 'Windows Defender 已关闭。'
+            Write-Output 'Windows Defender 实时保护已关闭。'
           ]]></Code>
         </Command>
       </Task>
