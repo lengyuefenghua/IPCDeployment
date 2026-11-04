@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Deployment schemaVersion="2.0" mode="execute">
-  <Meta name="卷绕工位部署" description="真实部署：安装看图、日志分析与显卡工具，强制重置 MySQL（删除 C:\MySQL、C:\ProgramData\MySQL、C:\Program Files\MySQL）并创建 inovance、bmian，配置电源与关闭 Windows Defender。" />
+  <Meta name="卷绕工位部署" description="真实部署：安装看图、日志分析、录屏、截图与显卡工具，强制重置 MySQL（删除 C:\MySQL、C:\ProgramData\MySQL、C:\Program Files\MySQL）并创建 inovance、bmian，配置电源与关闭 Windows Defender。" />
   <Options>
     <LogDirectory>logs</LogDirectory>
   </Options>
@@ -21,6 +21,30 @@
                  sha256="33E165E34E7C7C72294E05A5A459202E789B59D4C99BE569FF74EA6D50D0E9AA"
                  timeoutMinutes="15" successExitCodes="0,3010"
                  skipIfFileExists="%ProgramFiles%/ImageDataViewer/ImageDataViewer.App.exe" />
+        <Command id="image-data-viewer-shortcut" name="创建桌面快捷方式"
+                 language="powershell" timeoutMinutes="5" successExitCodes="0">
+          <Code><![CDATA[
+            $exe = 'C:\Program Files\ImageDataViewer\ImageDataViewer.App.exe'
+            if (-not (Test-Path -LiteralPath $exe)) {
+                throw "未找到：$exe"
+            }
+
+            $desktop = [Environment]::GetFolderPath('CommonDesktopDirectory')
+            $lnk = Join-Path $desktop 'ImageDataViewer.lnk'
+            $shell = New-Object -ComObject WScript.Shell
+            $shortcut = $shell.CreateShortcut($lnk)
+            $shortcut.TargetPath = $exe
+            $shortcut.WorkingDirectory = 'C:\Program Files\ImageDataViewer'
+            $shortcut.Description = '图像数据查看器'
+            $shortcut.Save()
+            if (-not (Test-Path -LiteralPath $lnk)) {
+                throw "桌面快捷方式创建失败：$lnk"
+            }
+
+            Write-Output "ImageDataViewer 快捷方式：$lnk"
+          ]]></Code>
+        </Command>
+
       </Task>
       <Task key="image-data-viewer-rules" name="导入卷绕工位规则">
         <Command id="image-data-viewer-rules-import" name="导入卷绕工位规则包"
@@ -103,6 +127,96 @@
             }
 
             Write-Output "日志分析工具安装完成：$exe"
+            Write-Output "桌面快捷方式：$lnk"
+          ]]></Code>
+        </Command>
+      </Task>
+      <Task key="apowerrec" name="ApowerREC">
+        <Command id="apowerrec-install" name="解压 ApowerREC 并创建桌面快捷方式"
+                 language="powershell" timeoutMinutes="10" successExitCodes="0">
+          <Code><![CDATA[
+            $target = 'C:\Program Files\ApowerREC'
+            $zip = Join-Path $env:IPCDEPLOYMENT_DATA_ROOT 'software\ApowerREC.zip'
+            if (-not (Test-Path -LiteralPath $zip)) {
+                throw "未找到 ApowerREC 安装包：$zip"
+            }
+
+            $exe = Join-Path $target 'ApowerREC.exe'
+            if (Test-Path -LiteralPath $exe) {
+                Write-Output "ApowerREC 已安装，跳过解压：$target"
+            } else {
+                # 目标目录存在但 exe 缺失时按不完整解压处理，清空后重解。
+                if (Test-Path -LiteralPath $target) {
+                    Write-Output "清理不完整目录：$target"
+                    Remove-Item -LiteralPath $target -Recurse -Force
+                }
+                New-Item -ItemType Directory -Force -Path $target | Out-Null
+                Write-Output "解压 ApowerREC 到：$target"
+                Expand-Archive -LiteralPath $zip -DestinationPath $target -Force
+            }
+
+            if (-not (Test-Path -LiteralPath $exe)) {
+                throw "解压后未找到：$exe"
+            }
+
+            $desktop = [Environment]::GetFolderPath('CommonDesktopDirectory')
+            $lnk = Join-Path $desktop 'ApowerREC.lnk'
+            $shell = New-Object -ComObject WScript.Shell
+            $shortcut = $shell.CreateShortcut($lnk)
+            $shortcut.TargetPath = $exe
+            $shortcut.WorkingDirectory = $target
+            $shortcut.Description = '录屏工具 ApowerREC'
+            $shortcut.Save()
+            if (-not (Test-Path -LiteralPath $lnk)) {
+                throw "桌面快捷方式创建失败：$lnk"
+            }
+
+            Write-Output "ApowerREC 安装完成：$exe"
+            Write-Output "桌面快捷方式：$lnk"
+          ]]></Code>
+        </Command>
+      </Task>
+      <Task key="snipaste" name="Snipaste">
+        <Command id="snipaste-install" name="解压 Snipaste 并创建桌面快捷方式"
+                 language="powershell" timeoutMinutes="10" successExitCodes="0">
+          <Code><![CDATA[
+            $target = 'C:\Program Files\Snipaste'
+            $zip = Join-Path $env:IPCDEPLOYMENT_DATA_ROOT 'software\Snipaste-2.11.3-x64.zip'
+            if (-not (Test-Path -LiteralPath $zip)) {
+                throw "未找到 Snipaste 安装包：$zip"
+            }
+
+            $exe = Join-Path $target 'Snipaste.exe'
+            if (Test-Path -LiteralPath $exe) {
+                Write-Output "Snipaste 已安装，跳过解压：$target"
+            } else {
+                # 目标目录存在但 exe 缺失时按不完整解压处理，清空后重解。
+                if (Test-Path -LiteralPath $target) {
+                    Write-Output "清理不完整目录：$target"
+                    Remove-Item -LiteralPath $target -Recurse -Force
+                }
+                New-Item -ItemType Directory -Force -Path $target | Out-Null
+                Write-Output "解压 Snipaste 到：$target"
+                Expand-Archive -LiteralPath $zip -DestinationPath $target -Force
+            }
+
+            if (-not (Test-Path -LiteralPath $exe)) {
+                throw "解压后未找到：$exe"
+            }
+
+            $desktop = [Environment]::GetFolderPath('CommonDesktopDirectory')
+            $lnk = Join-Path $desktop 'Snipaste.lnk'
+            $shell = New-Object -ComObject WScript.Shell
+            $shortcut = $shell.CreateShortcut($lnk)
+            $shortcut.TargetPath = $exe
+            $shortcut.WorkingDirectory = $target
+            $shortcut.Description = '截图工具 Snipaste'
+            $shortcut.Save()
+            if (-not (Test-Path -LiteralPath $lnk)) {
+                throw "桌面快捷方式创建失败：$lnk"
+            }
+
+            Write-Output "Snipaste 安装完成：$exe"
             Write-Output "桌面快捷方式：$lnk"
           ]]></Code>
         </Command>
