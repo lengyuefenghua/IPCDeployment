@@ -29,3 +29,9 @@
 
 
 
+
+## 2026-11-04 移除安装包 SHA-256 校验
+
+- 改动：删除 config/模切工位.xml、卷绕工位.xml、下料工位.xml、config.sample.xml 中全部 13 处 sha256 属性（ConfigLoader 视空白为不校验）；预检/执行逻辑与 UI 的 SHA-256 字段保持不变。
+- 验证：Select-String -Path config\*.xml -Pattern 'sha256=' 0 命中；dotnet test -c Debug 76 通过；package-portable.ps1 重新出包，dist/IPCDeployment/config 同样 0 命中。
+

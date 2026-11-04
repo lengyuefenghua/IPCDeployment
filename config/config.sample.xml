@@ -10,7 +10,6 @@
         <Install id="image-viewer-install" name="安装 ImageViewer"
                  file="software/ImageViewer-1.2.4-win-x64-setup.exe"
                  arguments="/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /TASKS=&quot;fileassociations&quot;"
-                 sha256="3A06A05946019C7880BE7F27B63FB5332A9896FB727AD5D3CB27D00099E7175D"
                  timeoutMinutes="15"
                  successExitCodes="0,3010"
                  skipIfFileExists="%ProgramFiles%/ImageViewer/ImageViewer.exe" />
