@@ -1,6 +1,6 @@
 # 工控机部署工具（IPCDeployment）
 
-解压即用的 Windows 部署工具。程序读取与 exe 同目录的 `config.xml`，按“分组 → 任务 → 步骤”执行安装、复制、注册表、命令、服务、网络、电源、开机自启和延时操作，并用两级进度、日志和执行结果展示真实情况。
+解压即用的 Windows 部署工具。程序读取程序目录 `config/` 下的 XML 配置（默认 `config/config.xml`，可在界面下拉切换），按“分组 → 任务 → 步骤”执行安装、复制、注册表、命令、服务、网络、电源、开机自启和延时操作，并用两级进度、日志和执行结果展示真实情况。
 
 ## 运行前置
 
@@ -13,10 +13,10 @@
 
 1. 解压 `dist/IPCDeployment.zip` 到可写目录。
 2. 双击 `IPCDeployment.exe`，在 UAC 中确认管理员权限。
-3. 程序默认加载同目录的 `config.xml`，显示分组、任务和步骤的总览。
+3. 程序默认加载 `config/config.xml`，显示分组、任务和步骤的总览；下拉可选择 `config/` 下的其他配置。
 4. 点击“校验配置”查看预检结果；`preview` 模式只校验和展示，不执行。
-5. 默认 `config.xml` 为 `mode="execute"`，只运行示例 CMD/PowerShell、内嵌代码和 `Delay` 这类只读、无副作用任务；点击“开始部署”并在确认框中确认。
-6. 需要完整功能示例时查看 `config.sample.xml`；它保持 `mode="preview"`，不会自动加载。
+5. 默认 `config/config.xml` 为 `mode="execute"`，只运行示例 CMD/PowerShell、内嵌代码和 `Delay` 这类只读、无副作用任务；点击“开始部署”并在确认框中确认。
+6. 需要完整功能示例时查看 `config/config.sample.xml`；它保持 `mode="preview"`，不会出现在下拉中，也不会自动加载。
 
 ## 目录
 
@@ -24,8 +24,9 @@
       IPCDeployment.exe
       Wpf.Ui.dll 及其他依赖
       README.md
-      config.xml              当前生效配置
-      config.sample.xml       配置示例
+      config/                 可切换的配置目录
+        config.xml            默认配置
+        config.sample.xml     配置示例（不参与选择）
       data/                   安装载荷
         software/             安装包
         files/                配置文件、SQL 脚本、模板

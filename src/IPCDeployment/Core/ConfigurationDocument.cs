@@ -95,13 +95,15 @@ namespace IPCDeployment.Core
         private const string BackupSuffix = ".bak";
 
         private readonly XDocument document;
+        private readonly string dataRoot;
         private EditorNode configNode;
         private DateTime lastWriteTimeUtc;
         private long lastLength;
 
-        private ConfigurationDocument(XDocument document, string targetPath)
+        private ConfigurationDocument(XDocument document, string targetPath, string dataRoot)
         {
             this.document = document;
+            this.dataRoot = dataRoot;
             TargetPath = targetPath;
             RebuildTree();
         }
@@ -118,7 +120,7 @@ namespace IPCDeployment.Core
             get { return configNode; }
         }
 
-        public static ConfigurationDocument CreateNew()
+        public static ConfigurationDocument CreateNew(string dataRoot)
         {
             var document = new XDocument(
                 new XDeclaration("1.0", "utf-8", null),
@@ -138,12 +140,12 @@ namespace IPCDeployment.Core
                                     new XAttribute("id", "step-1"),
                                     new XAttribute("name", "等待 1 秒"),
                                     new XAttribute("seconds", "1")))))));
-            var created = new ConfigurationDocument(document, null);
+            var created = new ConfigurationDocument(document, null, dataRoot);
             created.IsDirty = true;
             return created;
         }
 
-        public static EditorOpenResult Open(string path)
+        public static EditorOpenResult Open(string path, string dataRoot)
         {
             var result = new EditorOpenResult();
             var fullPath = Path.GetFullPath(path);
@@ -177,7 +179,7 @@ namespace IPCDeployment.Core
                 return result;
             }
 
-            var load = RunLoader(fullPath);
+            var load = RunLoader(fullPath, dataRoot);
             if (!load.IsValid)
             {
                 foreach (var issue in load.Errors)
@@ -187,7 +189,7 @@ namespace IPCDeployment.Core
                 return result;
             }
 
-            var created = new ConfigurationDocument(document, fullPath);
+            var created = new ConfigurationDocument(document, fullPath, dataRoot);
             created.RecordFileState(fullPath);
             result.Document = created;
             return result;
@@ -476,7 +478,7 @@ namespace IPCDeployment.Core
                 return result;
             }
 
-            var validation = RunLoader(tempPath);
+            var validation = RunLoader(tempPath, dataRoot);
             if (!validation.IsValid)
             {
                 // 校验在序列化后的临时文件上做，行号需要映射回编辑中的文档。
@@ -661,9 +663,9 @@ namespace IPCDeployment.Core
             }
         }
 
-        private static ConfigLoadResult RunLoader(string path)
+        private static ConfigLoadResult RunLoader(string path, string dataRoot)
         {
-            return new ConfigLoader(new PathPolicy()).Load(path);
+            return new ConfigLoader(new PathPolicy()).Load(path, dataRoot);
         }
 
         private void RecordFileState(string path)

@@ -6,13 +6,16 @@
 ## Requirements
 
 ### Requirement: 配置文件与数据目录
-程序 MUST 从 exe 同目录加载 config.xml；config.sample.xml MUST 只作为示例，不自动加载；data/ MUST 只存放安装载荷。
+程序 MUST 从程序目录的 config/ 加载直属 XML 配置：优先 config/config.xml，缺失时加载按名称排序的首个非示例 XML；config.sample.xml MUST 只作为示例，不参与选择且不自动加载；data/ MUST 只存放安装载荷，固定位于程序目录下。
 
 #### Scenario: 启动加载
-- When 程序启动, the system SHALL 加载 exe 同目录的 config.xml 并执行预检。
+- When 程序启动且 config/config.xml 存在, the system SHALL 加载 config/config.xml 并执行预检。
+
+#### Scenario: 默认配置缺失
+- When config/config.xml 不存在但 config/ 下还有其他非示例 XML, the system SHALL 加载按名称排序的首个非示例 XML。
 
 #### Scenario: 示例不自动加载
-- When config.xml 不存在, the system SHALL 报错并禁止执行，不得改用 config.sample.xml。
+- When config/ 下只有 config.sample.xml, the system SHALL 报错并禁止执行，不得改用 config.sample.xml。
 
 ### Requirement: 分组、任务与步骤结构
 配置 MUST 以 Groups → Group → Task → Step 组织，分组和任务 MUST 按 XML 顺序展示和执行；分组名 MUST 唯一且非空，每个分组至少一个任务，每个任务至少一个步骤。

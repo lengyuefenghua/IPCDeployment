@@ -19,12 +19,15 @@ namespace IPCDeployment
     {
         private readonly EditorViewModel viewModel;
         private readonly Action onSaved;
+        private readonly string configDirectory;
         private bool closeConfirmed;
 
-        public ConfigurationEditorWindow(string configPath, Action<string, string> note, Action onSaved)
+        public ConfigurationEditorWindow(string configPath, string configDirectory, string dataRoot,
+            Action<string, string> note, Action onSaved)
         {
             InitializeComponent();
-            viewModel = new EditorViewModel { Note = note };
+            this.configDirectory = Path.GetFullPath(configDirectory);
+            viewModel = new EditorViewModel(dataRoot) { Note = note };
             DataContext = viewModel;
             this.onSaved = onSaved;
             Loaded += (sender, args) => LoadInitial(configPath);
@@ -191,20 +194,20 @@ namespace IPCDeployment
                 return;
             }
 
-            var directory = viewModel.CurrentFilePath == null
-                ? AppDomain.CurrentDomain.BaseDirectory
-                : Path.GetDirectoryName(viewModel.CurrentFilePath);
             var dialog = new Microsoft.Win32.OpenFileDialog
             {
                 Filter = "XML 配置 (*.xml)|*.xml|所有文件 (*.*)|*.*",
-                InitialDirectory = string.IsNullOrEmpty(directory) || !Directory.Exists(directory)
-                    ? AppDomain.CurrentDomain.BaseDirectory
-                    : directory,
+                InitialDirectory = configDirectory,
                 CheckFileExists = true,
                 Multiselect = false
             };
             if (dialog.ShowDialog(this) != true)
             {
+                return;
+            }
+            if (!IsInConfigDirectory(dialog.FileName))
+            {
+                await ShowOutsideConfigAsync(dialog.FileName).ConfigureAwait(true);
                 return;
             }
             var opened = viewModel.Open(dialog.FileName);
@@ -318,7 +321,7 @@ namespace IPCDeployment
                 Filter = "XML 配置 (*.xml)|*.xml",
                 DefaultExt = ".xml",
                 FileName = viewModel.CurrentFilePath == null ? "config.xml" : Path.GetFileName(viewModel.CurrentFilePath),
-                InitialDirectory = AppDomain.CurrentDomain.BaseDirectory
+                InitialDirectory = configDirectory
             };
             if (dialog.ShowDialog(this) != true)
             {
@@ -329,6 +332,11 @@ namespace IPCDeployment
 
         private async System.Threading.Tasks.Task<bool> SaveToAsync(string path)
         {
+            if (!IsInConfigDirectory(path))
+            {
+                await ShowOutsideConfigAsync(path).ConfigureAwait(true);
+                return false;
+            }
             var result = viewModel.Save(path, false);
             if (result.Status == EditorSaveStatus.ExternalModified)
             {
@@ -364,6 +372,41 @@ namespace IPCDeployment
                     await ShowIssuesAsync("保存失败", new[] { result.Message }).ConfigureAwait(true);
                     return false;
             }
+        }
+
+        private bool IsInConfigDirectory(string path)
+        {
+            try
+            {
+                var fullPath = Path.GetFullPath(path);
+                var directory = Path.GetDirectoryName(fullPath);
+                return string.Equals(
+                    directory == null ? null : directory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                    configDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                    StringComparison.OrdinalIgnoreCase);
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        private async System.Threading.Tasks.Task ShowOutsideConfigAsync(string path)
+        {
+            var note = viewModel.Note;
+            if (note != null)
+            {
+                note("WARN", "配置编辑器拒绝 config 目录外的路径：" + path);
+            }
+            await new UiMessageBox
+            {
+                Owner = this,
+                Title = "路径不可用",
+                Content = "配置文件只能位于程序目录的 config 文件夹内。",
+                PrimaryButtonText = "确定",
+                IsCloseButtonEnabled = false,
+                PrimaryButtonAppearance = ControlAppearance.Primary
+            }.ShowDialogAsync(false, CancellationToken.None).ConfigureAwait(true);
         }
 
         private async System.Threading.Tasks.Task<bool> ConfirmDiscardAsync()

@@ -314,18 +314,19 @@ namespace IPCDeployment.Tests
         }
 
         [Test]
-        public void Repository_configs_load_from_root()
+        public void Repository_configs_load_from_config_directory()
         {
             var directory = new DirectoryInfo(TestContext.CurrentContext.TestDirectory);
-            while (directory != null && !File.Exists(Path.Combine(directory.FullName, "config.xml")))
+            while (directory != null && !File.Exists(Path.Combine(directory.FullName, "config", "config.xml")))
             {
                 directory = directory.Parent;
             }
             Assert.That(directory, Is.Not.Null, "repository root not found");
             var loader = new ConfigLoader(new PathPolicy());
+            var dataRoot = Path.Combine(directory.FullName, "data");
 
-            var active = loader.Load(Path.Combine(directory.FullName, "config.xml"));
-            var reference = loader.Load(Path.Combine(directory.FullName, "config.sample.xml"));
+            var active = loader.Load(Path.Combine(directory.FullName, "config", "config.xml"), dataRoot);
+            var reference = loader.Load(Path.Combine(directory.FullName, "config", "config.sample.xml"), dataRoot);
 
             Assert.That(active.IsValid, Is.True, string.Join("; ", active.Errors.Select(e => e.ToDisplayString())));
             Assert.That(active.Config.Mode, Is.EqualTo(DeploymentMode.Execute));
@@ -337,7 +338,7 @@ namespace IPCDeployment.Tests
         private ConfigLoadResult Load(string xml)
         {
             File.WriteAllText(configPath, xml);
-            return new ConfigLoader(new PathPolicy()).Load(configPath);
+            return new ConfigLoader(new PathPolicy()).Load(configPath, Path.Combine(root, "data"));
         }
 
         private static string WrapGroups(string groups)

@@ -27,7 +27,7 @@
 - When 用户把源路径填成 `C:\x.exe` 后保存, the system SHALL 不写文件、保留编辑内容，并列出可定位到该步骤的错误。
 
 ### Requirement: 只打开合法配置
-打开文件 MUST 先经配置加载器校验；不合法时 MUST NOT 进入编辑，并 MUST 显示带行列的错误。
+打开文件 MUST 先经配置加载器校验；不合法时 MUST NOT 进入编辑，并 MUST 显示带行列的错误。编辑器只能打开和保存程序目录 config/ 直属目录下的 XML；其他路径 MUST 拒绝并提示。
 
 #### Scenario: schemaVersion 不是 2.0
 - When 用户打开 schemaVersion 不是 2.0 的文件, the system SHALL 拒绝进入编辑并显示行列错误。

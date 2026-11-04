@@ -1,2 +1,2 @@
-Replace data/config.xml with your deployment configuration.
-The default config.xml is preview mode and does not execute operations.
+Put your deployment configuration in config/config.xml, or add another XML directly under config/ and pick it in the app.
+The shipped config/config.xml is execute mode; config/config.sample.xml stays preview and is never selected automatically.

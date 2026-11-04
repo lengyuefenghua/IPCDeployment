@@ -9,12 +9,16 @@ $publish = Join-Path $root 'dist\IPCDeployment'
 $zip = Join-Path $root 'dist\IPCDeployment.zip'
 $build = Join-Path $root ("src\IPCDeployment\bin\{0}\net472" -f $Configuration)
 $dataSource = Join-Path $root 'data'
+$configSource = Join-Path $root 'config'
 
 if (-not (Test-Path -LiteralPath $build)) {
     throw ('Build output was not found: ' + $build + '. Run dotnet build IPCDeployment.sln --configuration ' + $Configuration + '.')
 }
 if (-not (Test-Path -LiteralPath $dataSource)) {
     throw ('Data directory was not found: ' + $dataSource)
+}
+if (-not (Test-Path -LiteralPath $configSource)) {
+    throw ('Config directory was not found: ' + $configSource)
 }
 
 if (Test-Path -LiteralPath $publish) {
@@ -34,8 +38,7 @@ Get-ChildItem -LiteralPath $dataSource -Force | ForEach-Object {
 }
 
 Copy-Item -LiteralPath (Join-Path $root 'README.md') -Destination (Join-Path $publish 'README.md') -Force
-Copy-Item -LiteralPath (Join-Path $root 'config.xml') -Destination (Join-Path $publish 'config.xml') -Force
-Copy-Item -LiteralPath (Join-Path $root 'config.sample.xml') -Destination (Join-Path $publish 'config.sample.xml') -Force
+Copy-Item -LiteralPath $configSource -Destination $publish -Recurse -Force
 
 if (-not (Get-ChildItem -LiteralPath $dataTarget -Force | Select-Object -First 1)) {
     throw 'The packaged data directory is empty.'

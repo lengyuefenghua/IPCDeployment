@@ -15,6 +15,7 @@ namespace IPCDeployment.ViewModels
     {
         private readonly DeploymentShell shell;
         private readonly string packageRoot;
+        private readonly string configDirectory;
         private readonly string defaultConfigPath;
         private readonly DispatcherTimer timer;
         private readonly List<string> logLines;
@@ -25,6 +26,8 @@ namespace IPCDeployment.ViewModels
         private DateTime currentStarted;
         private ConfigLoadResult loadResult;
         private string configPath;
+        private string selectedConfigFile;
+        private bool refreshingConfigFiles;
         private NavigationItemViewModel selectedNavigation;
         private GroupViewModel selectedGroup;
         private GroupViewModel selectedReportGroup;
@@ -61,10 +64,12 @@ namespace IPCDeployment.ViewModels
         {
             this.packageRoot = Path.GetFullPath(packageRoot);
             shell = new DeploymentShell(packageRoot);
-            defaultConfigPath = Path.Combine(packageRoot, "config.xml");
+            configDirectory = Path.Combine(this.packageRoot, "config");
+            defaultConfigPath = Path.Combine(configDirectory, "config.xml");
             configPath = defaultConfigPath;
             logLines = new List<string>();
             taskLogLines = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+            ConfigFiles = new ObservableCollection<string>();
             Groups = new ObservableCollection<GroupViewModel>();
             NavigationItems = new ObservableCollection<NavigationItemViewModel>();
             CompletionTasks = new ObservableCollection<TaskViewModel>();
@@ -74,7 +79,7 @@ namespace IPCDeployment.ViewModels
             timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             timer.Tick += Timer_Tick;
 
-            configPathText = configPath;
+            configPathText = ConfigRelativePath(configPath);
             modeDetail = "正在读取配置...";
             summaryText = "尚未加载配置";
             validationText = string.Empty;
@@ -93,6 +98,7 @@ namespace IPCDeployment.ViewModels
         }
 
         public ObservableCollection<GroupViewModel> Groups { get; private set; }
+        public ObservableCollection<string> ConfigFiles { get; private set; }
         public ObservableCollection<NavigationItemViewModel> NavigationItems { get; private set; }
         public ObservableCollection<TaskViewModel> CompletionTasks { get; private set; }
         public ObservableCollection<string> PageLogLines { get; private set; }
@@ -212,6 +218,7 @@ namespace IPCDeployment.ViewModels
         }
 
         public string ConfigPathText { get { return configPathText; } private set { SetProperty(ref configPathText, value); } }
+        public string ConfigPath { get { return configPath; } }
         public string ModeDetail { get { return modeDetail; } private set { SetProperty(ref modeDetail, value); } }
         public string SummaryText { get { return summaryText; } private set { SetProperty(ref summaryText, value); } }
         public string ValidationText { get { return validationText; } private set { SetProperty(ref validationText, value); } }
@@ -357,14 +364,79 @@ namespace IPCDeployment.ViewModels
         }
         public bool HasCurrentReport { get { return CurrentReport != null; } }
 
-        public Task LoadAsync()
+        public string SelectedConfigFile
         {
-            return SelectConfigAsync(defaultConfigPath);
+            get { return selectedConfigFile; }
+            set
+            {
+                var previous = selectedConfigFile;
+                if (value == null)
+                {
+                    // 刷新列表会短暂清空 ItemsSource，此时不要把选中项或配置路径改空。
+                    if (refreshingConfigFiles)
+                    {
+                        return;
+                    }
+                    RestoreSelectedConfig(previous);
+                    return;
+                }
+                if (!SetProperty(ref selectedConfigFile, value))
+                {
+                    return;
+                }
+                if (!CanReload || IsRunning || IsEditorOpen)
+                {
+                    RestoreSelectedConfig(previous);
+                    return;
+                }
+                _ = ApplySelectedConfigAsync(previous, value);
+            }
         }
 
-        public Task LoadDefaultAsync()
+        /// <summary>刷新 config 目录下的配置列表（示例文件不参与选择）。</summary>
+        public void RefreshConfigFiles()
         {
-            return SelectConfigAsync(defaultConfigPath);
+            var current = selectedConfigFile;
+            refreshingConfigFiles = true;
+            try
+            {
+                ConfigFiles.Clear();
+                if (Directory.Exists(configDirectory))
+                {
+                    foreach (var file in Directory.GetFiles(configDirectory, "*.xml")
+                        .OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase))
+                    {
+                        var name = Path.GetFileName(file);
+                        if (IsSampleConfig(name))
+                        {
+                            continue;
+                        }
+                        ConfigFiles.Add(name);
+                    }
+                }
+            }
+            finally
+            {
+                refreshingConfigFiles = false;
+            }
+            if (current != null && ConfigFiles.Contains(current))
+            {
+                RestoreSelectedConfig(current);
+            }
+        }
+
+        public async Task LoadAsync()
+        {
+            RefreshConfigFiles();
+            if (ConfigFiles.Count == 0)
+            {
+                ShowNoConfigState();
+                return;
+            }
+            var name = ConfigFiles.FirstOrDefault(file => string.Equals(file, "config.xml", StringComparison.OrdinalIgnoreCase))
+                ?? ConfigFiles[0];
+            RestoreSelectedConfig(name);
+            await SelectConfigAsync(Path.Combine(configDirectory, name));
         }
 
         public void WriteNote(string level, string message)
@@ -372,17 +444,16 @@ namespace IPCDeployment.ViewModels
             shell.WriteNote(level, message);
         }
 
-        public async Task SelectConfigAsync(string path)
+        public async Task<bool> SelectConfigAsync(string path)
         {
             if (IsRunning || string.IsNullOrWhiteSpace(path))
             {
-                return;
+                return false;
             }
 
             var fullPath = Path.GetFullPath(path);
-            var configDirectory = Path.GetDirectoryName(fullPath);
-            var root = packageRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            if (!string.Equals(configDirectory, root, StringComparison.OrdinalIgnoreCase))
+            var name = Path.GetFileName(fullPath);
+            if (!IsInConfigDirectory(fullPath) || IsSampleConfig(name))
             {
                 loadResult = null;
                 Groups.Clear();
@@ -393,8 +464,8 @@ namespace IPCDeployment.ViewModels
                 SelectedNavigation = null;
                 SelectedGroup = null;
                 SelectedTask = null;
-                ModeDetail = "配置文件必须位于程序目录。";
-                ValidationText = "请选择与 IPCDeployment.exe 同目录的 XML 配置。";
+                ModeDetail = "配置文件必须位于 config 文件夹。";
+                ValidationText = "请选择程序目录 config 文件夹下的 XML 配置。";
                 HasValidationIssues = true;
                 CanStart = false;
                 CanShowReport = false;
@@ -404,11 +475,12 @@ namespace IPCDeployment.ViewModels
                 ShowGroup = false;
                 ShowReport = false;
                 FooterText = "配置文件路径无效。";
-                return;
+                return false;
             }
 
             configPath = fullPath;
-            ConfigPathText = fullPath;
+            ConfigPathText = ConfigRelativePath(fullPath);
+            RestoreSelectedConfig(name);
             CanStart = false;
             CanReload = false;
             CanShowReport = false;
@@ -420,6 +492,7 @@ namespace IPCDeployment.ViewModels
             {
                 var result = await Task.Run(() => shell.LoadConfig(fullPath));
                 ApplyResult(result);
+                return true;
             }
             catch (Exception exception)
             {
@@ -443,6 +516,7 @@ namespace IPCDeployment.ViewModels
                 ShowGroup = false;
                 ShowReport = false;
                 FooterText = "配置加载失败。";
+                return false;
             }
             finally
             {
@@ -453,6 +527,66 @@ namespace IPCDeployment.ViewModels
         public Task ReloadAsync()
         {
             return SelectConfigAsync(configPath);
+        }
+
+        private async Task ApplySelectedConfigAsync(string previous, string name)
+        {
+            var ok = await SelectConfigAsync(Path.Combine(configDirectory, name));
+            if (!ok)
+            {
+                RestoreSelectedConfig(previous);
+            }
+        }
+
+        private void RestoreSelectedConfig(string name)
+        {
+            selectedConfigFile = name;
+            OnPropertyChanged("SelectedConfigFile");
+        }
+
+        private bool IsInConfigDirectory(string fullPath)
+        {
+            var directory = Path.GetDirectoryName(fullPath);
+            return directory != null && string.Equals(
+                directory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                configDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsSampleConfig(string name)
+        {
+            return name.EndsWith(".sample.xml", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string ConfigRelativePath(string fullPath)
+        {
+            return Path.Combine("config", Path.GetFileName(fullPath));
+        }
+
+        private void ShowNoConfigState()
+        {
+            loadResult = null;
+            Groups.Clear();
+            NavigationItems.Clear();
+            AllTasks.Clear();
+            SelectedTaskSteps.Clear();
+            taskLogLines.Clear();
+            SelectedNavigation = null;
+            SelectedGroup = null;
+            SelectedTask = null;
+            configPath = defaultConfigPath;
+            ConfigPathText = Path.Combine("config", "（无配置）");
+            ModeDetail = "config 文件夹中没有可用的 XML 配置。";
+            ValidationText = "请把 XML 配置放入程序目录的 config 文件夹。";
+            HasValidationIssues = true;
+            CanStart = false;
+            CanShowReport = false;
+            CanOpenLog = false;
+            CurrentReport = null;
+            ShowOverview = true;
+            ShowGroup = false;
+            ShowReport = false;
+            FooterText = "未找到配置。";
         }
 
         public void ShowOverviewPage()
@@ -530,7 +664,8 @@ namespace IPCDeployment.ViewModels
 
         public string BuildConfirmationText()
         {
-            return "即将执行 " + Groups.Count + " 个分组、" + AllTasks.Count + " 个任务、" +
+            return "即将使用 " + (string.IsNullOrEmpty(selectedConfigFile) ? "当前配置" : selectedConfigFile) +
+                " 执行 " + Groups.Count + " 个分组、" + AllTasks.Count + " 个任务、" +
                 AllTasks.Sum(t => t.TotalSteps) + " 个步骤。" + Environment.NewLine + Environment.NewLine +
                 "任一任务步骤失败会结束该任务，并继续下一个任务。" + Environment.NewLine +
                 "本程序将以管理员权限修改本机，且不提供自动回滚。" + Environment.NewLine + Environment.NewLine +

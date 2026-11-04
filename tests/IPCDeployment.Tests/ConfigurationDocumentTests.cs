@@ -12,11 +12,13 @@ namespace IPCDeployment.Tests
     public class ConfigurationDocumentTests
     {
         private string tempDirectory;
+        private string dataRoot;
 
         [SetUp]
         public void SetUp()
         {
             tempDirectory = Path.Combine(Path.GetTempPath(), "IPCDeploymentEditor-" + Guid.NewGuid().ToString("N"));
+            dataRoot = Path.Combine(tempDirectory, "data");
             Directory.CreateDirectory(tempDirectory);
         }
 
@@ -40,13 +42,13 @@ namespace IPCDeployment.Tests
         {
             var path = Path.Combine(tempDirectory, "config.xml");
 
-            var document = ConfigurationDocument.CreateNew();
+            var document = ConfigurationDocument.CreateNew(dataRoot);
             var result = document.Save(path, false);
 
             Assert.That(result.Status, Is.EqualTo(EditorSaveStatus.Saved), result.Message);
             Assert.That(File.Exists(path), Is.True);
 
-            var load = new ConfigLoader(new PathPolicy()).Load(path);
+            var load = new ConfigLoader(new PathPolicy()).Load(path, dataRoot);
             Assert.That(load.Errors, Is.Empty);
         }
 
@@ -57,7 +59,7 @@ namespace IPCDeployment.Tests
             CreateDataFiles();
             File.WriteAllText(path, CommentedConfig, new UTF8Encoding(false));
 
-            var open = ConfigurationDocument.Open(path);
+            var open = ConfigurationDocument.Open(path, dataRoot);
             Assert.That(open.Succeeded, Is.True, Describe(open.Issues));
             var document = open.Document;
 
@@ -80,7 +82,7 @@ namespace IPCDeployment.Tests
             var text = File.ReadAllText(path, Encoding.UTF8);
             Assert.That(text, Does.Contain("<!-- 分组注释 -->"), "注释必须保留");
 
-            var reopened = ConfigurationDocument.Open(path);
+            var reopened = ConfigurationDocument.Open(path, dataRoot);
             Assert.That(reopened.Succeeded, Is.True, Describe(reopened.Issues));
             var root = reopened.Document.Root;
             Assert.That(root.Children[0].Element.Attribute("name").Value, Is.EqualTo("第二组"), "分组顺序必须保留");
@@ -108,7 +110,7 @@ namespace IPCDeployment.Tests
             File.WriteAllText(path, CommentedConfig, new UTF8Encoding(false));
             var before = File.ReadAllBytes(path);
 
-            var open = ConfigurationDocument.Open(path);
+            var open = ConfigurationDocument.Open(path, dataRoot);
             Assert.That(open.Succeeded, Is.True, Describe(open.Issues));
             var document = open.Document;
             var task = document.Root.Children[0].Children[0];
@@ -123,7 +125,7 @@ namespace IPCDeployment.Tests
             Assert.That(save.Issues, Is.Not.Empty);
             Assert.That(File.ReadAllBytes(path), Is.EqualTo(before), "校验失败不得改动目标文件");
             Assert.That(File.Exists(path + ".bak"), Is.False, "校验失败不得产生备份");
-            Assert.That(new ConfigLoader(new PathPolicy()).Load(path).Errors, Is.Empty);
+            Assert.That(new ConfigLoader(new PathPolicy()).Load(path, dataRoot).Errors, Is.Empty);
         }
 
         [Test]
@@ -133,7 +135,7 @@ namespace IPCDeployment.Tests
             CreateDataFiles();
             File.WriteAllText(path, CommentedConfig, new UTF8Encoding(false));
 
-            var open = ConfigurationDocument.Open(path);
+            var open = ConfigurationDocument.Open(path, dataRoot);
             Assert.That(open.Succeeded, Is.True, Describe(open.Issues));
             var document = open.Document;
 
@@ -144,7 +146,7 @@ namespace IPCDeployment.Tests
             Assert.That(blocked.Status, Is.EqualTo(EditorSaveStatus.ExternalModified), blocked.Message);
             Assert.That(File.ReadAllText(path, Encoding.UTF8), Is.EqualTo(externalContent), "未确认覆盖时不得改动文件");
 
-            var document2 = ConfigurationDocument.Open(path);
+            var document2 = ConfigurationDocument.Open(path, dataRoot);
             Assert.That(document2.Succeeded, Is.False, "被外部改坏的文件不应进入编辑");
         }
 
@@ -156,7 +158,7 @@ namespace IPCDeployment.Tests
             File.WriteAllText(path, CommentedConfig, new UTF8Encoding(false));
             var original = File.ReadAllBytes(path);
 
-            var open = ConfigurationDocument.Open(path);
+            var open = ConfigurationDocument.Open(path, dataRoot);
             Assert.That(open.Succeeded, Is.True, Describe(open.Issues));
             var document = open.Document;
 
@@ -165,7 +167,7 @@ namespace IPCDeployment.Tests
             Assert.That(save.Status, Is.EqualTo(EditorSaveStatus.Saved), save.Message);
             Assert.That(File.Exists(path + ".bak"), Is.True);
             Assert.That(File.ReadAllBytes(path + ".bak"), Is.EqualTo(original));
-            var load = new ConfigLoader(new PathPolicy()).Load(path);
+            var load = new ConfigLoader(new PathPolicy()).Load(path, dataRoot);
             Assert.That(load.Errors, Is.Empty);
         }
 
@@ -177,7 +179,7 @@ namespace IPCDeployment.Tests
             File.WriteAllText(path, CommentedConfig, new UTF8Encoding(false));
             var original = File.ReadAllBytes(path);
 
-            var open = ConfigurationDocument.Open(path);
+            var open = ConfigurationDocument.Open(path, dataRoot);
             Assert.That(open.Succeeded, Is.True, Describe(open.Issues));
             var document = open.Document;
             var delay = document.Root.Children[0].Children[0].Children[0];

@@ -19,12 +19,12 @@ namespace IPCDeployment.Core
             paths = pathPolicy ?? new PathPolicy();
         }
 
-        public ConfigLoadResult Load(string configPath)
+        public ConfigLoadResult Load(string configPath, string dataRoot)
         {
             var result = new ConfigLoadResult();
             if (string.IsNullOrWhiteSpace(configPath) || !File.Exists(configPath))
             {
-                AddError(result, null, "未找到 config.xml。");
+                AddError(result, null, "未找到配置文件。");
                 return result;
             }
 
@@ -81,9 +81,7 @@ namespace IPCDeployment.Core
                 Mode = mode
             };
 
-            // 配置文件与 exe 同级，data/ 固定为其下的载荷目录。
-            var configDirectory = Path.GetDirectoryName(Path.GetFullPath(configPath));
-            var dataRoot = Path.Combine(configDirectory, "data");
+            // 配置文件可位于 config/ 子目录，数据目录固定为程序目录下的 data/，由调用方传入。
             var operationIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var groupKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var groupNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

@@ -5,8 +5,8 @@
 - IPCDeployment (工控机部署工具) is a portable Windows deployment tool: a net472 WPF-UI desktop app that reads an XML config and executes install, copy, registry, command, service, network, power, autostart, and delay steps grouped into groups and tasks.
 - Solution: `IPCDeployment.sln` at the repo root (not under `src/`). It has two projects: `src/IPCDeployment` (WPF-UI 4.3.0 app; `Core/` holds the WPF-free logic) and `tests/IPCDeployment.Tests` (NUnit). Example commands ship as `.cmd`/`.ps1` in `data/commands`.
 - Packaging is the app plus `scripts/package-portable.ps1` producing a ZIP. There is no Inno Setup script or self-installer/uninstall entry for the tool itself; do not add one.
-- The app requests administrator privileges. `config.xml` ships as `mode="execute"` with read-only steps and `config.sample.xml` stays `mode="preview"`; execute requires `mode="execute"`, preflight, the task/step summary, and a second confirmation in the UI.
-- `config.xml` and `config.sample.xml` sit next to the exe; startup loads `config.xml`, and the sample is reference only. `data/` holds software, files, and commands; `logs/` is runtime output. Config structure is Groups → Group → Task → Step, and group names must be unique.
+- The app requests administrator privileges. `config/config.xml` ships as `mode="execute"` with the deployment steps and `config/config.sample.xml` stays `mode="preview"`; execute requires `mode="execute"`, preflight, the task/step summary, and a second confirmation in the UI.
+- `config/` holds selectable configurations as direct child `*.xml` files; startup loads `config/config.xml`, falling back to the first non-sample XML, and the UI switches configs with a drop-down. `config/config.sample.xml` is reference only: it is never listed or loaded automatically. `data/` holds software, files, and commands; `logs/` is runtime output. Config structure is Groups → Group → Task → Step, and group names must be unique.
 
 ## Commands
 
@@ -20,7 +20,7 @@
 - `dotnet test` builds the app project as a dependency; run the build before packaging. Tests use temp directories and do not touch `data/`.
 - Tests are Windows net472 and use fake process runners plus temp dirs: no admin rights or real system changes needed.
 - Do not launch the app or run deployment operations during verification; build, test, package, and inspect files only. Real changes happen manually on a representative machine.
-- `dist/IPCDeployment` and `dist/IPCDeployment.zip` hold the package; the script copies the `src/IPCDeployment/bin/<Configuration>/net472` output, root `config.xml`/`config.sample.xml`, `data/`, and the root `README.md`. `dist/` is gitignored. `scripts/build-debug.ps1` copies the same set to `build/debug` without a ZIP.
+- `dist/IPCDeployment` and `dist/IPCDeployment.zip` hold the package; the script copies the `src/IPCDeployment/bin/<Configuration>/net472` output, the root `config/` directory, `data/`, and the root `README.md`. `dist/` is gitignored. `scripts/build-debug.ps1` copies the same set to `build/debug` without a ZIP.
 
 ## Architecture and safety
 

@@ -2,8 +2,10 @@
 
 ## File and directory
 
-- `config.xml` and `config.sample.xml` live next to `IPCDeployment.exe`.
-- The program loads `config.xml` on startup; `config.sample.xml` is a reference and is never loaded automatically.
+- `config/` holds selectable configurations as direct child `*.xml` files; `config/config.xml` is the default configuration and `config/config.sample.xml` is a reference example.
+- The program loads `config/config.xml` on startup; when it is missing, the first non-sample XML in `config/` is loaded. `config.sample.xml` is never listed, selected, or loaded automatically.
+- The configuration file must be a direct child of `config/`; a path outside it is rejected.
+- The configuration editor may only open and save files inside `config/`.
 - `data/software` stores installers, `data/files` stores copy sources and scripts, and `data/commands` stores executable commands.
 - Data sources resolve under `<application>/data`, regardless of which XML is selected.
 - `logs/` is created at runtime under the application directory, or falls back to `%TEMP%/IPCDeployment/logs`.

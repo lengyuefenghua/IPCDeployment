@@ -28,11 +28,13 @@ namespace IPCDeployment.ViewModels
         private bool isDirty;
         private bool isExecuteMode;
         private bool isIssuePanelOpen;
+        private readonly string dataRoot;
         private Action<string, string> note;
 
-        public EditorViewModel()
+        public EditorViewModel(string dataRoot)
         {
-            document = ConfigurationDocument.CreateNew();
+            this.dataRoot = dataRoot;
+            document = ConfigurationDocument.CreateNew(dataRoot);
             AttachDocument(document);
         }
 
@@ -280,7 +282,7 @@ namespace IPCDeployment.ViewModels
             ClearIssues();
             IsIssuePanelOpen = false;
             SearchText = string.Empty;
-            AttachDocument(ConfigurationDocument.CreateNew());
+            AttachDocument(ConfigurationDocument.CreateNew(dataRoot));
             FilePathText = "（未保存的新配置）";
             StatusText = "已新建配置骨架";
             SavedAtText = "未保存";
@@ -288,7 +290,7 @@ namespace IPCDeployment.ViewModels
 
         public EditorOpenResult Open(string path)
         {
-            var result = ConfigurationDocument.Open(path);
+            var result = ConfigurationDocument.Open(path, dataRoot);
             if (!result.Succeeded)
             {
                 var note = this.note;

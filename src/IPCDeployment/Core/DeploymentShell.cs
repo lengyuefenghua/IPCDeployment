@@ -28,9 +28,9 @@ namespace IPCDeployment.Core
         {
             var fullPath = Path.GetFullPath(configPath);
             configPathDisplay = fullPath;
-            // 配置与 exe 同级；data/ 固定为程序目录下的载荷目录。
+            // 配置位于 config/ 子目录，data/ 固定为程序目录下的载荷目录。
             dataRoot = Path.Combine(packageRoot, "data");
-            var result = new ConfigLoader(paths).Load(fullPath);
+            var result = new ConfigLoader(paths).Load(fullPath, dataRoot);
             config = result.Config;
             logDirectory = config == null ? "logs" : config.LogDirectory;
 
@@ -149,7 +149,7 @@ namespace IPCDeployment.Core
                 return;
             }
 
-            log.Write("INFO", string.Empty, "配置文件：" + (configPathDisplay ?? "data/config.xml") + "；模式：" +
+            log.Write("INFO", string.Empty, "配置文件：" + (configPathDisplay ?? "config/config.xml") + "；模式：" +
                 (config == null ? "未知" : ModeText(config.Mode)) + "。");
             foreach (var error in result.Errors)
             {

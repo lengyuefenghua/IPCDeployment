@@ -7,7 +7,6 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Resources;
-using Microsoft.Win32;
 using IPCDeployment.ViewModels;
 using Wpf.Ui.Controls;
 
@@ -68,31 +67,14 @@ namespace IPCDeployment
             }
         }
 
-        private async void SelectConfigButton_Click(object sender, RoutedEventArgs e)
-        {
-            var initialDirectory = Path.GetDirectoryName(viewModel.ConfigPathText);
-            if (string.IsNullOrEmpty(initialDirectory) || !Directory.Exists(initialDirectory))
-            {
-                initialDirectory = AppDomain.CurrentDomain.BaseDirectory;
-            }
-
-            var dialog = new OpenFileDialog
-            {
-                Filter = "XML 配置 (*.xml)|*.xml|所有文件 (*.*)|*.*",
-                InitialDirectory = initialDirectory,
-                FileName = Path.GetFileName(viewModel.ConfigPathText),
-                CheckFileExists = true,
-                Multiselect = false
-            };
-            if (dialog.ShowDialog(this) == true)
-            {
-                await viewModel.SelectConfigAsync(dialog.FileName);
-            }
-        }
-
         private async void ValidateConfigButton_Click(object sender, RoutedEventArgs e)
         {
             await viewModel.ReloadAsync();
+        }
+
+        private void ConfigCombo_DropDownOpened(object sender, EventArgs e)
+        {
+            viewModel.RefreshConfigFiles();
         }
 
         private void EditConfigButton_Click(object sender, RoutedEventArgs e)
@@ -103,8 +85,14 @@ namespace IPCDeployment
                 return;
             }
 
-            // 非模态打开：编辑器与主界面共享同一份 config.xml，保存后主界面立即重载。
-            var window = new ConfigurationEditorWindow(viewModel.ConfigPathText, viewModel.WriteNote, ReloadAfterEditorSave)
+            // 非模态打开：编辑器与主界面共享同一份配置，保存后主界面立即重载。
+            var baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
+            var window = new ConfigurationEditorWindow(
+                viewModel.ConfigPath,
+                Path.Combine(baseDirectory, "config"),
+                Path.Combine(baseDirectory, "data"),
+                viewModel.WriteNote,
+                ReloadAfterEditorSave)
             {
                 Owner = this
             };
@@ -120,10 +108,8 @@ namespace IPCDeployment
 
         private async void ReloadAfterEditorSave()
         {
+            viewModel.RefreshConfigFiles();
             await viewModel.ReloadAsync();
-        }        private async void DefaultButton_Click(object sender, RoutedEventArgs e)
-        {
-            await viewModel.LoadDefaultAsync();
         }
 
         private async void StartButton_Click(object sender, RoutedEventArgs e)

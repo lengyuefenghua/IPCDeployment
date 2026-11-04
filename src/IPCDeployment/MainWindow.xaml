@@ -253,18 +253,17 @@
                   <ColumnDefinition Width="Auto" />
                   <ColumnDefinition Width="Auto" />
                   <ColumnDefinition Width="Auto" />
-                  <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <ui:TextBox Text="{Binding ConfigPathText, Mode=OneWay}" IsReadOnly="True" VerticalContentAlignment="Center" />
-                <ui:Button Grid.Column="1" Content="选择配置文件" Appearance="Secondary" Click="SelectConfigButton_Click" Margin="10,0,0,0" Padding="12,7" IsEnabled="{Binding CanReload}" />
-                <ui:Button Grid.Column="2" Content="编辑配置" Appearance="Secondary" Click="EditConfigButton_Click" Margin="10,0,0,0" Padding="12,7" IsEnabled="{Binding CanReload}" />
-                <ui:Button Grid.Column="3" Content="校验配置" Appearance="Secondary" Click="ValidateConfigButton_Click" Margin="10,0,0,0" Padding="12,7" IsEnabled="{Binding CanReload}" />
-                <ui:Button Grid.Column="4" Content="开始部署  →" Appearance="Primary" Click="StartButton_Click" Margin="10,0,0,0" Padding="14,7" IsEnabled="{Binding CanStartNow}" />
+                <ComboBox ItemsSource="{Binding ConfigFiles}"
+                          SelectedItem="{Binding SelectedConfigFile, Mode=TwoWay}"
+                          IsEnabled="{Binding CanReload}"
+                          DropDownOpened="ConfigCombo_DropDownOpened"
+                          VerticalContentAlignment="Center" />
+                <ui:Button Grid.Column="1" Content="编辑配置" Appearance="Secondary" Click="EditConfigButton_Click" Margin="10,0,0,0" Padding="12,7" IsEnabled="{Binding CanReload}" />
+                <ui:Button Grid.Column="2" Content="校验配置" Appearance="Secondary" Click="ValidateConfigButton_Click" Margin="10,0,0,0" Padding="12,7" IsEnabled="{Binding CanReload}" />
+                <ui:Button Grid.Column="3" Content="开始部署  →" Appearance="Primary" Click="StartButton_Click" Margin="10,0,0,0" Padding="14,7" IsEnabled="{Binding CanStartNow}" />
               </Grid>
-              <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                <ui:Button Content="重新加载默认配置" Appearance="Secondary" Click="DefaultButton_Click" Padding="12,6" IsEnabled="{Binding CanReload}" />
-
-              </StackPanel>
+              <ui:TextBlock Text="{Binding ConfigPathText}" FontSize="12" Foreground="#64748B" Margin="0,8,0,0" />
             </StackPanel>
           </ui:Card>
 
