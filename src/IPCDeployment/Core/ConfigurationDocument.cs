@@ -120,6 +120,12 @@ namespace IPCDeployment.Core
             get { return configNode; }
         }
 
+        /// <summary>按文档顺序遍历全部节点（含配置根），供全文档校验使用。</summary>
+        public IEnumerable<EditorNode> Nodes
+        {
+            get { return Flatten(configNode); }
+        }
+
         public static ConfigurationDocument CreateNew(string dataRoot)
         {
             var document = new XDocument(

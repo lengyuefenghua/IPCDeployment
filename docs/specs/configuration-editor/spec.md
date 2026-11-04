@@ -11,6 +11,9 @@
 #### Scenario: 修改分组名后保存
 - When 用户从主窗口打开编辑器、修改一个分组名并保存, the system SHALL 重载配置并在主界面显示新名称。
 
+#### Scenario: 在编辑器里切换配置后保存
+- When 用户用编辑器工具栏的配置下拉切到另一份配置并保存, the system SHALL 让主界面切到刚保存的那份配置。
+
 #### Scenario: 新增节点自动生成标识
 - When 用户新增分组、任务或步骤, the system SHALL 自动生成未被占用的键或 id，并以只读方式展示；名称不参与标识生成。
 
@@ -21,16 +24,28 @@
 - When 用户在一个任务下新增九类步骤各一个、填写必填项并上移一个分组后保存, the system SHALL 在重新打开后保持字段值、节点顺序与原有注释不变。
 
 ### Requirement: 保存前校验与字段级错误
-保存 MUST 先经配置加载器校验；未通过时 MUST NOT 写入文件，MUST 保留编辑内容，并列出可定位到对应节点的错误。
+保存 MUST 先做全文档字段级轻校验（只校验按可见条件显示的字段），未通过时 MUST NOT 写入文件并列出可定位到字段的错误；写盘前 MUST 再经配置加载器校验，未通过时 MUST 保留编辑内容。
 
 #### Scenario: 非法源路径
-- When 用户把源路径填成 `C:\x.exe` 后保存, the system SHALL 不写文件、保留编辑内容，并列出可定位到该步骤的错误。
+- When 用户把源路径填成 `C:\x.exe` 后保存, the system SHALL 不写文件、保留编辑内容，并列出可定位到该步骤该字段的错误。
+
+#### Scenario: 点击问题条目
+- When 用户点击问题面板中的一条错误, the system SHALL 选中对应节点并滚动到出错字段。
+
+### Requirement: 字段输入助手
+源路径类字段 MUST 提供 `data/` 下现有文件或目录的候选下拉，且仍允许自由输入；候选值 MUST 满足路径策略的前缀与扩展名规则。
+
+#### Scenario: 选择已存在的安装包
+- When 用户在安装包字段展开候选, the system SHALL 只列出 `data/software` 下的 .exe 与 .msi。
 
 ### Requirement: 只打开合法配置
-打开文件 MUST 先经配置加载器校验；不合法时 MUST NOT 进入编辑，并 MUST 显示带行列的错误。编辑器只能打开和保存程序目录 config/ 直属目录下的 XML；其他路径 MUST 拒绝并提示。
+打开文件 MUST 先经配置加载器校验；不合法时 MUST NOT 进入编辑，并 MUST 显示带行列的错误。编辑器 MUST 用配置下拉切换 `config/` 直属的非示例 XML，其他路径 MUST 拒绝并提示。
 
 #### Scenario: schemaVersion 不是 2.0
 - When 用户打开 schemaVersion 不是 2.0 的文件, the system SHALL 拒绝进入编辑并显示行列错误。
+
+#### Scenario: 配置下拉里没有示例文件
+- When 用户展开编辑器的配置下拉, the system SHALL 只列出 `config/` 直属 XML，且不包含 `*.sample.xml`。
 
 ### Requirement: 外部修改检测
 保存前 MUST 比较打开时记录的时间与长度；不一致时 MUST 提示「文件已被外部修改」，并允许覆盖或取消。

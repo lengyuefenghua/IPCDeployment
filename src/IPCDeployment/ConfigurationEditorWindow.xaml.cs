@@ -7,6 +7,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Media;
 using IPCDeployment.Core;
 using IPCDeployment.ViewModels;
 using Wpf.Ui.Controls;
@@ -18,18 +19,21 @@ namespace IPCDeployment
     public partial class ConfigurationEditorWindow : FluentWindow
     {
         private readonly EditorViewModel viewModel;
-        private readonly Action onSaved;
+        private readonly Action<string> onSaved;
         private readonly string configDirectory;
         private bool closeConfirmed;
+        private bool switchingConfig;
 
         public ConfigurationEditorWindow(string configPath, string configDirectory, string dataRoot,
-            Action<string, string> note, Action onSaved)
+            Action<string, string> note, Action<string> onSaved)
         {
             InitializeComponent();
             this.configDirectory = Path.GetFullPath(configDirectory);
-            viewModel = new EditorViewModel(dataRoot) { Note = note };
+            viewModel = new EditorViewModel(dataRoot, this.configDirectory) { Note = note };
             DataContext = viewModel;
             this.onSaved = onSaved;
+            viewModel.ConfigSwitchRequested += OnConfigSwitchRequested;
+            viewModel.FieldFocusRequested += OnFieldFocusRequested;
             Loaded += (sender, args) => LoadInitial(configPath);
             Closing += EditorWindow_Closing;
             PreviewKeyDown += EditorWindow_PreviewKeyDown;
@@ -37,6 +41,7 @@ namespace IPCDeployment
 
         private async void LoadInitial(string configPath)
         {
+            viewModel.RefreshConfigFiles();
             if (string.IsNullOrWhiteSpace(configPath) || !File.Exists(configPath))
             {
                 return;
@@ -49,6 +54,45 @@ namespace IPCDeployment
             // 打开失败时不进入编辑，保留可用的新建骨架。
             await ShowIssuesAsync("无法打开配置文件", opened.Issues.Select(issue => issue.ToDisplayString()))
                 .ConfigureAwait(true);
+        }
+
+        private void ConfigCombo_DropDownOpened(object sender, EventArgs eventArgs)
+        {
+            viewModel.RefreshConfigFiles();
+        }
+
+        // 下拉选中项的切换请求统一走这里：确认未保存修改后再打开，取消或失败则回滚选中项。
+        private async void OnConfigSwitchRequested(string fileName)
+        {
+            // 下拉的选中变更发生在绑定刷新里，先让出当前调用栈再弹确认框。
+            await System.Threading.Tasks.Task.Yield();
+            if (switchingConfig)
+            {
+                return;
+            }
+            switchingConfig = true;
+            try
+            {
+                if (!await ConfirmDiscardAsync().ConfigureAwait(true))
+                {
+                    viewModel.RevertSelectedConfig(viewModel.PreviousConfigFile);
+                    return;
+                }
+
+                var path = Path.Combine(configDirectory, fileName);
+                var opened = viewModel.Open(path);
+                if (opened.Succeeded)
+                {
+                    return;
+                }
+                await ShowIssuesAsync("无法打开配置文件", opened.Issues.Select(issue => issue.ToDisplayString()))
+                    .ConfigureAwait(true);
+                viewModel.RevertSelectedConfig(viewModel.PreviousConfigFile);
+            }
+            finally
+            {
+                switchingConfig = false;
+            }
         }
 
         private void StructureTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> eventArgs)
@@ -118,12 +162,6 @@ namespace IPCDeployment
                 await SaveAsync().ConfigureAwait(true);
                 return;
             }
-            if (control && eventArgs.Key == Key.O)
-            {
-                eventArgs.Handled = true;
-                await OpenAsync().ConfigureAwait(true);
-                return;
-            }
             if (control && eventArgs.Key == Key.N)
             {
                 eventArgs.Handled = true;
@@ -182,42 +220,6 @@ namespace IPCDeployment
             viewModel.NewDocument();
         }
 
-        private async void OpenButton_Click(object sender, RoutedEventArgs eventArgs)
-        {
-            await OpenAsync().ConfigureAwait(true);
-        }
-
-        private async System.Threading.Tasks.Task OpenAsync()
-        {
-            if (!await ConfirmDiscardAsync().ConfigureAwait(true))
-            {
-                return;
-            }
-
-            var dialog = new Microsoft.Win32.OpenFileDialog
-            {
-                Filter = "XML 配置 (*.xml)|*.xml|所有文件 (*.*)|*.*",
-                InitialDirectory = configDirectory,
-                CheckFileExists = true,
-                Multiselect = false
-            };
-            if (dialog.ShowDialog(this) != true)
-            {
-                return;
-            }
-            if (!IsInConfigDirectory(dialog.FileName))
-            {
-                await ShowOutsideConfigAsync(dialog.FileName).ConfigureAwait(true);
-                return;
-            }
-            var opened = viewModel.Open(dialog.FileName);
-            if (!opened.Succeeded)
-            {
-                await ShowIssuesAsync("无法打开配置文件", opened.Issues.Select(issue => issue.ToDisplayString()))
-                    .ConfigureAwait(true);
-            }
-        }
-
         private async void SaveButton_Click(object sender, RoutedEventArgs eventArgs)
         {
             await SaveAsync().ConfigureAwait(true);
@@ -240,7 +242,116 @@ namespace IPCDeployment
 
         private void AddStepButton_Click(object sender, RoutedEventArgs eventArgs)
         {
-            viewModel.AddStep();
+            // 由树上「+」按钮或右键菜单触发的九类步骤菜单。
+            var button = sender as FrameworkElement;
+            if (button == null)
+            {
+                return;
+            }
+            var node = button.Tag as EditorNodeViewModel;
+            if (node != null)
+            {
+                viewModel.SelectedNode = node;
+            }
+            ShowStepTypeMenu(button);
+        }
+
+        private void AddStepType_Click(object sender, RoutedEventArgs eventArgs)
+        {
+            var item = sender as System.Windows.Controls.MenuItem;
+            var option = item == null ? null : item.Tag as EditorStepTypeOption;
+            if (option != null)
+            {
+                viewModel.AddStep(option.Type);
+            }
+        }
+
+        private void ShowStepTypeMenu(FrameworkElement placementTarget)
+        {
+            var menu = new ContextMenu { PlacementTarget = placementTarget };
+            foreach (var option in viewModel.StepTypeOptions)
+            {
+                var item = new System.Windows.Controls.MenuItem { Header = option.Label, Tag = option };
+                item.Click += AddStepType_Click;
+                menu.Items.Add(item);
+            }
+            menu.IsOpen = true;
+        }
+
+        private void SectionHeader_Click(object sender, RoutedEventArgs eventArgs)
+        {
+            var element = sender as FrameworkElement;
+            var section = element == null ? null : element.DataContext as EditorFieldSectionViewModel;
+            if (section != null)
+            {
+                section.IsExpanded = !section.IsExpanded;
+            }
+        }
+
+        private void OnFieldFocusRequested(EditorFieldViewModel field, bool selectAll)
+        {
+            FocusField(field, selectAll);
+        }
+
+        /// <summary>
+        /// 把字段滚入视野并聚焦。新增节点后要等布局生成，所以延到 Loaded 优先级再找控件。
+        /// </summary>
+        private void FocusField(EditorFieldViewModel field, bool selectAll)
+        {
+            if (field == null)
+            {
+                return;
+            }
+            foreach (var section in viewModel.Sections)
+            {
+                if (section.Fields.Contains(field))
+                {
+                    section.IsExpanded = true;
+                }
+            }
+            Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, new Action(() =>
+            {
+                var input = FindByDataContext<FrameworkElement>(FieldScroll, field);
+                if (input == null)
+                {
+                    FieldScroll.ScrollToTop();
+                    return;
+                }
+                input.BringIntoView();
+                input.Focus();
+                var textBox = input as TextBoxBase;
+                if (selectAll && textBox != null)
+                {
+                    textBox.SelectAll();
+                }
+            }));
+        }
+
+        /// <summary>在可见树里按 DataContext 找控件：字段模板是动态生成的，不能靠 x:Name。</summary>
+        private static T FindByDataContext<T>(DependencyObject root, object dataContext)
+            where T : FrameworkElement
+        {
+            if (root == null)
+            {
+                return null;
+            }
+            var count = VisualTreeHelper.GetChildrenCount(root);
+            for (var index = 0; index < count; index++)
+            {
+                var child = VisualTreeHelper.GetChild(root, index);
+                var element = child as T;
+                if (element != null && ReferenceEquals(element.DataContext, dataContext) &&
+                    (element is TextBoxBase || element is ComboBox))
+                {
+                    return element;
+                }
+                var found = FindByDataContext<T>(child, dataContext);
+                if (found != null)
+                {
+                    return found;
+                }
+            }
+            return null;
         }
 
         private async void DeleteButton_Click(object sender, RoutedEventArgs eventArgs)
@@ -332,7 +443,7 @@ namespace IPCDeployment
 
         private async System.Threading.Tasks.Task<bool> SaveToAsync(string path)
         {
-            if (!IsInConfigDirectory(path))
+            if (!ConfigFileRules.IsDirectChild(configDirectory, path))
             {
                 await ShowOutsideConfigAsync(path).ConfigureAwait(true);
                 return false;
@@ -363,7 +474,7 @@ namespace IPCDeployment
                 case EditorSaveStatus.Saved:
                     if (onSaved != null)
                     {
-                        onSaved();
+                        onSaved(path);
                     }
                     return true;
                 case EditorSaveStatus.ValidationFailed:
@@ -371,23 +482,6 @@ namespace IPCDeployment
                 default:
                     await ShowIssuesAsync("保存失败", new[] { result.Message }).ConfigureAwait(true);
                     return false;
-            }
-        }
-
-        private bool IsInConfigDirectory(string path)
-        {
-            try
-            {
-                var fullPath = Path.GetFullPath(path);
-                var directory = Path.GetDirectoryName(fullPath);
-                return string.Equals(
-                    directory == null ? null : directory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-                    configDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-                    StringComparison.OrdinalIgnoreCase);
-            }
-            catch (Exception)
-            {
-                return false;
             }
         }
 

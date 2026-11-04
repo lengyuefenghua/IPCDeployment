@@ -83,6 +83,11 @@ namespace IPCDeployment.ViewModels
             get { return Node.Kind == EditorNodeKind.Step; }
         }
 
+        public bool IsTask
+        {
+            get { return Node.Kind == EditorNodeKind.Task; }
+        }
+
         /// <summary>自动生成的只读标识，只在属性区右上角灰显，不参与编辑。</summary>
         public string IdentityText
         {
@@ -160,16 +165,20 @@ namespace IPCDeployment.ViewModels
         private const string IrrelevantMessage = "当前操作类型不使用该字段，保存前请清空。";
 
         private readonly Action<EditorFieldViewModel> changed;
+        private readonly IList<string> pickerOptions;
         private string value;
         private string errorMessage;
         private bool isVisible = true;
         private bool isIrrelevant;
+        private bool isHighlighted;
 
-        public EditorFieldViewModel(ConfigField field, string value, Action<EditorFieldViewModel> changed)
+        public EditorFieldViewModel(ConfigField field, string value, Action<EditorFieldViewModel> changed,
+            IList<string> pickerOptions = null)
         {
             Field = field;
             this.value = value ?? string.Empty;
             this.changed = changed;
+            this.pickerOptions = pickerOptions ?? new List<string>();
         }
 
         public ConfigField Field { get; private set; }
@@ -211,7 +220,24 @@ namespace IPCDeployment.ViewModels
 
         public bool ShowText
         {
-            get { return Field.Kind != FieldInputKind.Enum && Field.Kind != FieldInputKind.Boolean && Field.Kind != FieldInputKind.Multiline; }
+            get
+            {
+                return !Field.HasPicker &&
+                    Field.Kind != FieldInputKind.Enum &&
+                    Field.Kind != FieldInputKind.Boolean &&
+                    Field.Kind != FieldInputKind.Multiline;
+            }
+        }
+
+        /// <summary>路径类字段用可编辑下拉展示，候选来自 data 下已有条目。</summary>
+        public bool ShowPicker
+        {
+            get { return Field.HasPicker; }
+        }
+
+        public IList<string> PickerOptions
+        {
+            get { return pickerOptions; }
         }
 
         public IList<string> Options
@@ -257,6 +283,13 @@ namespace IPCDeployment.ViewModels
         public bool HasError
         {
             get { return !string.IsNullOrEmpty(errorMessage); }
+        }
+
+        /// <summary>问题面板定位到该字段时短暂高亮，帮助用户找到出错位置。</summary>
+        public bool IsHighlighted
+        {
+            get { return isHighlighted; }
+            set { SetProperty(ref isHighlighted, value); }
         }
 
         /// <summary>条件不满足但已有值时仍显示，避免把用户填过的值藏起来。</summary>
@@ -315,6 +348,8 @@ namespace IPCDeployment.ViewModels
 
     public sealed class EditorFieldSectionViewModel : ObservableObject
     {
+        private bool isExpanded = true;
+
         public EditorFieldSectionViewModel(string title)
         {
             Title = title;
@@ -324,6 +359,29 @@ namespace IPCDeployment.ViewModels
         public string Title { get; private set; }
         public ObservableCollection<EditorFieldViewModel> Fields { get; private set; }
 
+        /// <summary>分区默认展开；折叠头可点击切换。</summary>
+        public bool IsExpanded
+        {
+            get { return isExpanded; }
+            set
+            {
+                if (SetProperty(ref isExpanded, value))
+                {
+                    OnPropertyChanged("ToggleGlyph");
+                }
+            }
+        }
+
+        public string ToggleGlyph
+        {
+            get { return isExpanded ? "▾" : "▸"; }
+        }
+
+        public string HeaderText
+        {
+            get { return Title + " · " + Fields.Count(field => field.IsVisible) + " 项"; }
+        }
+
         public bool HasVisibleFields
         {
             get { return Fields.Any(field => field.IsVisible); }
@@ -332,6 +390,7 @@ namespace IPCDeployment.ViewModels
         public void Refresh()
         {
             OnPropertyChanged("HasVisibleFields");
+            OnPropertyChanged("HeaderText");
         }
     }
 
@@ -365,17 +424,21 @@ namespace IPCDeployment.ViewModels
     public sealed class EditorIssueViewModel
     {
         public EditorIssueViewModel(ConfigIssue issue, EditorNode node)
+            : this(issue.ToDisplayString(), node, null)
         {
-            Issue = issue;
+        }
+
+        /// <summary>本地全文档校验产生的条目，直接带字段名便于定位。</summary>
+        public EditorIssueViewModel(string text, EditorNode node, string fieldName)
+        {
+            Text = text;
             Node = node;
+            FieldName = fieldName;
         }
 
-        public ConfigIssue Issue { get; private set; }
         public EditorNode Node { get; private set; }
+        public string FieldName { get; private set; }
 
-        public string Text
-        {
-            get { return Issue.ToDisplayString(); }
-        }
+        public string Text { get; private set; }
     }
 }

@@ -106,10 +106,14 @@ namespace IPCDeployment
             window.Show();
         }
 
-        private async void ReloadAfterEditorSave()
+        private async void ReloadAfterEditorSave(string savedPath)
         {
             viewModel.RefreshConfigFiles();
-            await viewModel.ReloadAsync();
+            // 编辑器可能已经切到另一份配置，主界面要跟到刚保存的那份。
+            if (string.IsNullOrEmpty(savedPath) || !await viewModel.SelectConfigAsync(savedPath))
+            {
+                await viewModel.ReloadAsync();
+            }
         }
 
         private async void StartButton_Click(object sender, RoutedEventArgs e)

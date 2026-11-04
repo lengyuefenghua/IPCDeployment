@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Xml.Linq;
 using IPCDeployment.Core;
@@ -14,6 +15,9 @@ namespace IPCDeployment.ViewModels
     public sealed class EditorViewModel : ObservableObject
     {
         private readonly HashSet<XElement> dirtyElements = new HashSet<XElement>();
+        private readonly string dataRoot;
+        private readonly string configDirectory;
+        private readonly SourcePathCatalog sourcePathCatalog = new SourcePathCatalog();
         private ConfigurationDocument document;
         private EditorNodeViewModel selectedNode;
         private EditorIssueViewModel selectedIssue;
@@ -21,19 +25,21 @@ namespace IPCDeployment.ViewModels
         private string filePathText = "（未保存的新配置）";
         private string statusText = "就绪";
         private string savedAtText = "未保存";
-        private string newStepType = "Delay";
         private string searchText = string.Empty;
         private string modeBadgeText = "preview · 只预检";
         private string summaryText = "0 分组 · 0 任务 · 0 步骤";
+        private string selectedConfigFile;
+        private string previousConfigFile;
+        private bool switchingConfig;
         private bool isDirty;
         private bool isExecuteMode;
         private bool isIssuePanelOpen;
-        private readonly string dataRoot;
         private Action<string, string> note;
 
-        public EditorViewModel(string dataRoot)
+        public EditorViewModel(string dataRoot, string configDirectory)
         {
             this.dataRoot = dataRoot;
+            this.configDirectory = configDirectory;
             document = ConfigurationDocument.CreateNew(dataRoot);
             AttachDocument(document);
         }
@@ -42,6 +48,13 @@ namespace IPCDeployment.ViewModels
         public ObservableCollection<EditorFieldSectionViewModel> Sections { get; } = new ObservableCollection<EditorFieldSectionViewModel>();
         public ObservableCollection<EditorIssueViewModel> Issues { get; } = new ObservableCollection<EditorIssueViewModel>();
         public ObservableCollection<EditorSearchResultViewModel> SearchResults { get; } = new ObservableCollection<EditorSearchResultViewModel>();
+        public ObservableCollection<string> ConfigFiles { get; } = new ObservableCollection<string>();
+
+        /// <summary>用户在下拉里选了另一份配置时触发，由窗口负责未保存确认与实际打开。</summary>
+        public event Action<string> ConfigSwitchRequested;
+
+        /// <summary>请求把某个字段滚入视野；<c>selectAll</c> 为真时同时全选文本（新增节点后命名）。</summary>
+        public event Action<EditorFieldViewModel, bool> FieldFocusRequested;
 
         /// <summary>运行日志出口，由窗口转发给部署外壳。</summary>
         public Action<string, string> Note
@@ -54,15 +67,91 @@ namespace IPCDeployment.ViewModels
             }
         }
 
-        public IList<string> StepTypes
+        /// <summary>九类步骤的中文菜单项，供树里的「+」与右键菜单共用。</summary>
+        public IList<EditorStepTypeOption> StepTypeOptions { get; } = new List<EditorStepTypeOption>
         {
-            get { return ConfigFieldSchema.StepTypes; }
+            new EditorStepTypeOption("Install", "安装程序 · Install"),
+            new EditorStepTypeOption("Copy", "复制文件 · Copy"),
+            new EditorStepTypeOption("Registry", "写注册表 · Registry"),
+            new EditorStepTypeOption("Command", "运行命令 · Command"),
+            new EditorStepTypeOption("Service", "配置服务 · Service"),
+            new EditorStepTypeOption("Network", "配置网络 · Network"),
+            new EditorStepTypeOption("Power", "电源设置 · Power"),
+            new EditorStepTypeOption("AutoStart", "开机自启 · AutoStart"),
+            new EditorStepTypeOption("Delay", "延时等待 · Delay")
+        };
+
+        /// <summary>下拉里当前选中的配置文件名；切换请求交给窗口处理。</summary>
+        public string SelectedConfigFile
+        {
+            get { return selectedConfigFile; }
+            set
+            {
+                if (switchingConfig || string.IsNullOrEmpty(value) ||
+                    string.Equals(selectedConfigFile, value, StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+                // 先记下旧值，窗口确认取消或打开失败时据此回滚。
+                previousConfigFile = selectedConfigFile;
+                selectedConfigFile = value;
+                OnPropertyChanged("SelectedConfigFile");
+                var handler = ConfigSwitchRequested;
+                if (handler != null)
+                {
+                    handler(value);
+                }
+            }
         }
 
-        public string NewStepType
+        public string PreviousConfigFile
         {
-            get { return newStepType; }
-            set { SetProperty(ref newStepType, value); }
+            get { return previousConfigFile; }
+        }
+
+        /// <summary>刷新 config 目录下的配置列表（示例文件不参与选择）。</summary>
+        public void RefreshConfigFiles()
+        {
+            ConfigFiles.Clear();
+            if (!Directory.Exists(configDirectory))
+            {
+                return;
+            }
+            foreach (var file in Directory.GetFiles(configDirectory, "*.xml")
+                .OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase))
+            {
+                var name = Path.GetFileName(file);
+                if (ConfigFileRules.IsSampleConfig(name))
+                {
+                    continue;
+                }
+                ConfigFiles.Add(name);
+            }
+            // 列表重建会让下拉短暂失去选中项，这里把文档对应的文件名推回去。
+            OnPropertyChanged("SelectedConfigFile");
+        }
+
+        /// <summary>回滚下拉选中项；直写字段，不触发切换事件。</summary>
+        public void RevertSelectedConfig(string name)
+        {
+            selectedConfigFile = name;
+            OnPropertyChanged("SelectedConfigFile");
+        }
+
+        /// <summary>文档当前对应的文件名同步到下拉；直写字段，不触发切换事件。</summary>
+        public void SyncSelectedConfig(string path)
+        {
+            selectedConfigFile = string.IsNullOrEmpty(path) ? null : Path.GetFileName(path);
+            previousConfigFile = selectedConfigFile;
+            switchingConfig = true;
+            try
+            {
+                OnPropertyChanged("SelectedConfigFile");
+            }
+            finally
+            {
+                switchingConfig = false;
+            }
         }
 
         public string FilePathText
@@ -203,6 +292,7 @@ namespace IPCDeployment.ViewModels
                 {
                     SelectNode(target, false);
                 }
+                LocateIssueField(value);
             }
         }
 
@@ -286,6 +376,7 @@ namespace IPCDeployment.ViewModels
             FilePathText = "（未保存的新配置）";
             StatusText = "已新建配置骨架";
             SavedAtText = "未保存";
+            SyncSelectedConfig(null);
         }
 
         public EditorOpenResult Open(string path)
@@ -307,19 +398,36 @@ namespace IPCDeployment.ViewModels
             FilePathText = result.Document.TargetPath;
             StatusText = "已打开 " + result.Document.TargetPath;
             SavedAtText = "已保存";
+            SyncSelectedConfig(result.Document.TargetPath);
             return result;
         }
 
         public EditorSaveResult Save(string path, bool overwriteExternal)
         {
-            // 轻校验只做提示，是否写盘始终由加载器决定。
+            // 先做全文档字段级轻校验，尽早把问题摆出来；写盘仍以加载器为最终关口。
             ValidateVisibleFields();
+            var localIssues = ValidateDocument();
+            if (localIssues.Count > 0)
+            {
+                FillEditorIssues(localIssues);
+                IsIssuePanelOpen = true;
+                SelectFirstIssue();
+                StatusText = "校验未通过，共 " + localIssues.Count + " 处问题。";
+                SavedAtText = "未保存";
+                var rejected = new EditorSaveResult
+                {
+                    Status = EditorSaveStatus.ValidationFailed,
+                    Message = StatusText
+                };
+                return rejected;
+            }
+
             ClearIssues();
             var result = document.Save(path, overwriteExternal);
             IsDirty = document.IsDirty;
             if (result.Status == EditorSaveStatus.ValidationFailed)
             {
-                FillIssues(result.Issues);
+                FillLoaderIssues(result.Issues);
                 IsIssuePanelOpen = true;
                 SelectFirstIssue();
                 StatusText = result.Message;
@@ -335,6 +443,8 @@ namespace IPCDeployment.ViewModels
                 ClearFieldErrors();
                 IsIssuePanelOpen = false;
                 RefreshSummary();
+                RefreshConfigFiles();
+                SyncSelectedConfig(document.TargetPath);
             }
             else
             {
@@ -352,6 +462,7 @@ namespace IPCDeployment.ViewModels
             }
             Rebuild(node == null ? null : node.Element);
             StatusText = "已新增分组";
+            RequestFieldFocus("name");
         }
 
         public void AddTask()
@@ -372,15 +483,16 @@ namespace IPCDeployment.ViewModels
             }
             Rebuild(node == null ? null : node.Element);
             StatusText = "已新增任务";
+            RequestFieldFocus("name");
         }
 
-        public void AddStep()
+        public void AddStep(string stepType)
         {
             if (selectedNode == null || selectedNode.Node.Kind != EditorNodeKind.Task)
             {
                 return;
             }
-            var node = document.AddStep(selectedNode.Node, NewStepType);
+            var node = document.AddStep(selectedNode.Node, stepType);
             if (node != null && node.Element != null)
             {
                 dirtyElements.Add(node.Element);
@@ -391,6 +503,7 @@ namespace IPCDeployment.ViewModels
             }
             Rebuild(node == null ? null : node.Element);
             StatusText = "已新增步骤";
+            RequestFieldFocus("name");
         }
 
         public void RemoveSelected()
@@ -495,6 +608,106 @@ namespace IPCDeployment.ViewModels
                 return;
             }
             IsIssuePanelOpen = !IsIssuePanelOpen;
+        }
+
+        /// <summary>把某个字段设为待聚焦目标，并通知窗口在布局完成后处理。</summary>
+        public void RequestFieldFocus(string fieldName)
+        {
+            var field = Sections.SelectMany(section => section.Fields)
+                .FirstOrDefault(item => string.Equals(item.Name, fieldName, StringComparison.Ordinal));
+            if (field == null)
+            {
+                return;
+            }
+            var handler = FieldFocusRequested;
+            if (handler != null)
+            {
+                handler(field, true);
+            }
+        }
+
+        /// <summary>
+        /// 遍历全文档做字段级轻校验。只校验可见字段，避免条件不满足的必填项被误判；
+        /// 返回的问题带字段名，供问题面板定位。
+        /// </summary>
+        public IList<EditorIssueViewModel> ValidateDocument()
+        {
+            var issues = new List<EditorIssueViewModel>();
+            foreach (var node in document.Nodes)
+            {
+                var fields = document.FieldsOf(node);
+                if (fields.Count == 0)
+                {
+                    continue;
+                }
+                var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var field in fields)
+                {
+                    values[field.Name] = document.GetValue(node, field);
+                }
+                foreach (var field in fields)
+                {
+                    if (!field.IsVisibleFor(values))
+                    {
+                        continue;
+                    }
+                    var error = ConfigFieldValidator.Validate(field, values[field.Name], values);
+                    if (error != null)
+                    {
+                        issues.Add(new EditorIssueViewModel(
+                            BuildIssueText(node, field, error), node, field.Name));
+                    }
+                }
+            }
+            return issues;
+        }
+
+        private static string BuildIssueText(EditorNode node, ConfigField field, string error)
+        {
+            var name = node.Element == null ? null : (string)node.Element.Attribute("name");
+            var label = string.IsNullOrEmpty(name) ? node.DisplayName : name;
+            return label + " › " + field.Label + "：" + error;
+        }
+
+        /// <summary>定位问题对应的字段：先按字段名，再按消息里的名称/标签，最后退回首个出错字段。</summary>
+        private void LocateIssueField(EditorIssueViewModel issue)
+        {
+            var fields = Sections.SelectMany(section => section.Fields).ToList();
+            foreach (var field in fields)
+            {
+                field.IsHighlighted = false;
+            }
+
+            EditorFieldViewModel target = null;
+            if (!string.IsNullOrEmpty(issue.FieldName))
+            {
+                target = fields.FirstOrDefault(field =>
+                    string.Equals(field.Name, issue.FieldName, StringComparison.Ordinal));
+            }
+            if (target == null && !string.IsNullOrEmpty(issue.Text))
+            {
+                target = fields.FirstOrDefault(field =>
+                    issue.Text.IndexOf(field.Name, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    (field.LabelText.Length > 0 &&
+                     issue.Text.IndexOf(field.LabelText.TrimEnd(' ', '*'), StringComparison.OrdinalIgnoreCase) >= 0));
+            }
+            if (target == null)
+            {
+                // 当前节点可能还没显示错误，先跑一遍再取第一个。
+                ValidateVisibleFields();
+                target = fields.FirstOrDefault(field => field.HasError);
+            }
+            if (target == null)
+            {
+                return;
+            }
+
+            target.IsHighlighted = true;
+            var handler = FieldFocusRequested;
+            if (handler != null)
+            {
+                handler(target, false);
+            }
         }
 
         private void AttachDocument(ConfigurationDocument attached)
@@ -631,10 +844,14 @@ namespace IPCDeployment.ViewModels
                     Sections.Add(section);
                 }
                 var capturedField = field;
+                var pickerOptions = field.HasPicker
+                    ? sourcePathCatalog.List(dataRoot, field.PathPrefix, field.Extensions, field.PickDirectoriesOnly)
+                    : null;
                 var fieldViewModel = new EditorFieldViewModel(
                     capturedField,
                     document.GetValue(capturedNode, capturedField),
-                    changed => OnFieldChanged(changed, capturedNode, capturedField));
+                    changed => OnFieldChanged(changed, capturedNode, capturedField),
+                    pickerOptions);
                 fieldViewModel.RefreshVisibility(currentValues);
                 section.Fields.Add(fieldViewModel);
             }
@@ -864,7 +1081,17 @@ namespace IPCDeployment.ViewModels
             }
         }
 
-        private void FillIssues(IEnumerable<ConfigIssue> issues)
+        private void FillEditorIssues(IEnumerable<EditorIssueViewModel> issues)
+        {
+            Issues.Clear();
+            foreach (var issue in issues)
+            {
+                Issues.Add(issue);
+            }
+            NotifyIssuesChanged();
+        }
+
+        private void FillLoaderIssues(IEnumerable<ConfigIssue> issues)
         {
             Issues.Clear();
             foreach (var issue in issues)
@@ -897,5 +1124,18 @@ namespace IPCDeployment.ViewModels
             selectedIssue = null;
             SelectedIssue = Issues[0];
         }
+    }
+
+    /// <summary>步骤类型菜单项：类型用于生成 XML 元素，标签用于显示。</summary>
+    public sealed class EditorStepTypeOption
+    {
+        public EditorStepTypeOption(string type, string label)
+        {
+            Type = type;
+            Label = label;
+        }
+
+        public string Type { get; private set; }
+        public string Label { get; private set; }
     }
 }

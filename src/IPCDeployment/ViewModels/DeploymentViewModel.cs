@@ -407,7 +407,7 @@ namespace IPCDeployment.ViewModels
                         .OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase))
                     {
                         var name = Path.GetFileName(file);
-                        if (IsSampleConfig(name))
+                        if (ConfigFileRules.IsSampleConfig(name))
                         {
                             continue;
                         }
@@ -453,7 +453,7 @@ namespace IPCDeployment.ViewModels
 
             var fullPath = Path.GetFullPath(path);
             var name = Path.GetFileName(fullPath);
-            if (!IsInConfigDirectory(fullPath) || IsSampleConfig(name))
+            if (!ConfigFileRules.IsDirectChild(configDirectory, fullPath) || ConfigFileRules.IsSampleConfig(name))
             {
                 loadResult = null;
                 Groups.Clear();
@@ -542,20 +542,6 @@ namespace IPCDeployment.ViewModels
         {
             selectedConfigFile = name;
             OnPropertyChanged("SelectedConfigFile");
-        }
-
-        private bool IsInConfigDirectory(string fullPath)
-        {
-            var directory = Path.GetDirectoryName(fullPath);
-            return directory != null && string.Equals(
-                directory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-                configDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-                StringComparison.OrdinalIgnoreCase);
-        }
-
-        private static bool IsSampleConfig(string name)
-        {
-            return name.EndsWith(".sample.xml", StringComparison.OrdinalIgnoreCase);
         }
 
         private static string ConfigRelativePath(string fullPath)

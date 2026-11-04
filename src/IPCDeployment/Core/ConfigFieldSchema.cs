@@ -60,6 +60,10 @@ namespace IPCDeployment.Core
         public int? MaxValue { get; set; }
         public FieldValidationKind Check { get; set; }
         public string PathPrefix { get; set; }
+        /// <summary>源路径字段是否提供 data 下现有条目的候选下拉。</summary>
+        public bool HasPicker { get; private set; }
+        /// <summary>候选只列目录（工作目录这类字段）。</summary>
+        public bool PickDirectoriesOnly { get; private set; }
         /// <summary>源路径允许的扩展名（含点，小写）；为空表示不限。</summary>
         public IList<string> Extensions { get; private set; }
         public IList<FieldCondition> VisibleWhen { get; private set; }
@@ -126,6 +130,14 @@ namespace IPCDeployment.Core
             {
                 Extensions.Add(extension.ToLowerInvariant());
             }
+            return this;
+        }
+
+        /// <summary>让界面为该路径字段提供 data 下现有条目的候选下拉。</summary>
+        public ConfigField WithPicker(bool directoriesOnly = false)
+        {
+            HasPicker = true;
+            PickDirectoriesOnly = directoriesOnly;
             return this;
         }
 
@@ -205,7 +217,7 @@ namespace IPCDeployment.Core
             {
                 case "Install":
                     fields.Add(new ConfigField("file", "安装包", FieldInputKind.Text, true)
-                        .WithSection("安装来源").WithSourcePath("software/", ".exe", ".msi")
+                        .WithSection("安装来源").WithSourcePath("software/", ".exe", ".msi").WithPicker()
                         .WithHint("data/software 下的 .exe 或 .msi，例如 software/setup.exe。"));
                     fields.Add(new ConfigField("arguments", "安装参数", FieldInputKind.Text, false)
                         .WithSection("安装来源").WithHint("例如 /VERYSILENT /NORESTART。"));
@@ -223,7 +235,7 @@ namespace IPCDeployment.Core
                     break;
                 case "Copy":
                     fields.Add(new ConfigField("source", "源路径", FieldInputKind.Text, true)
-                        .WithSection("复制路径").WithSourcePath("files/")
+                        .WithSection("复制路径").WithSourcePath("files/").WithPicker()
                         .WithHint("data/files 下的相对路径，例如 files/app。"));
                     fields.Add(new ConfigField("target", "目标路径", FieldInputKind.Text, true)
                         .WithSection("复制路径").WithCheck(FieldValidationKind.DestinationPath)
@@ -252,12 +264,12 @@ namespace IPCDeployment.Core
                     break;
                 case "Command":
                     fields.Add(new ConfigField("file", "命令文件", FieldInputKind.Text, false)
-                        .WithSection("命令").WithSourcePath("commands/", ".exe", ".cmd", ".bat", ".ps1")
+                        .WithSection("命令").WithSourcePath("commands/", ".exe", ".cmd", ".bat", ".ps1").WithPicker()
                         .WithHint("data/commands 下的 .exe/.cmd/.bat/.ps1；与内嵌代码二选一。"));
                     fields.Add(new ConfigField("arguments", "参数", FieldInputKind.Text, false)
                         .WithSection("命令").WithHint("内嵌代码模式不接受参数，请写入代码。"));
                     fields.Add(new ConfigField("workingDirectory", "工作目录", FieldInputKind.Text, false)
-                        .WithSection("命令").WithSourcePath("commands/")
+                        .WithSection("命令").WithSourcePath("commands/").WithPicker(true)
                         .WithHint("data/commands 下的相对路径。"));
                     fields.Add(new ConfigField("timeoutMinutes", "超时（分钟）", FieldInputKind.Integer, false)
                         .WithSection("执行").WithRange(1, 60).WithHint("1 到 60，默认 10。"));
