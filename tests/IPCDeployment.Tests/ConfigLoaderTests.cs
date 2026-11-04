@@ -317,19 +317,34 @@ namespace IPCDeployment.Tests
         public void Repository_configs_load_from_config_directory()
         {
             var directory = new DirectoryInfo(TestContext.CurrentContext.TestDirectory);
-            while (directory != null && !File.Exists(Path.Combine(directory.FullName, "config", "config.xml")))
+            while (directory != null && !Directory.Exists(Path.Combine(directory.FullName, "config")))
             {
                 directory = directory.Parent;
             }
             Assert.That(directory, Is.Not.Null, "repository root not found");
             var loader = new ConfigLoader(new PathPolicy());
             var dataRoot = Path.Combine(directory.FullName, "data");
+            if (!Directory.Exists(dataRoot))
+            {
+                Assert.Ignore("仓库不跟踪 data/，跳过仓库载荷配置测试。");
+            }
+            var configDirectory = Path.Combine(directory.FullName, "config");
 
-            var active = loader.Load(Path.Combine(directory.FullName, "config", "config.xml"), dataRoot);
-            var reference = loader.Load(Path.Combine(directory.FullName, "config", "config.sample.xml"), dataRoot);
+            var configFiles = Directory.GetFiles(configDirectory, "*.xml")
+                .Where(path => !Path.GetFileName(path).EndsWith(".sample.xml", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            Assert.That(configFiles, Is.Not.Empty, "no configuration files found");
 
-            Assert.That(active.IsValid, Is.True, string.Join("; ", active.Errors.Select(e => e.ToDisplayString())));
-            Assert.That(active.Config.Mode, Is.EqualTo(DeploymentMode.Execute));
+            foreach (var configFile in configFiles)
+            {
+                var active = loader.Load(configFile, dataRoot);
+                var label = Path.GetFileName(configFile);
+                Assert.That(active.IsValid, Is.True, label + ": " + string.Join("; ", active.Errors.Select(e => e.ToDisplayString())));
+                Assert.That(active.Config.Mode, Is.EqualTo(DeploymentMode.Execute), label);
+            }
+
+            var reference = loader.Load(Path.Combine(configDirectory, "config.sample.xml"), dataRoot);
             Assert.That(reference.IsValid, Is.True, string.Join("; ", reference.Errors.Select(e => e.ToDisplayString())));
             Assert.That(reference.Config.Mode, Is.EqualTo(DeploymentMode.Preview));
             Assert.That(reference.Config.Operations.Count, Is.GreaterThan(0));

@@ -1,2 +1,0 @@
-VisionIPC deployment sample file.
-This file is safe to copy to a temporary directory.

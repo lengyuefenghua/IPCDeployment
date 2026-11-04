@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Deployment schemaVersion="2.0" mode="execute">
-  <Meta name="Win10 工控机部署" description="真实部署：安装看图、日志分析与显卡工具，强制重置 MySQL（删除 C:\MySQL、C:\ProgramData\MySQL、C:\Program Files\MySQL），配置电源与关闭 Windows Defender。" />
+  <Meta name="模切工位部署" description="真实部署：安装看图、日志分析与显卡工具，强制重置 MySQL（删除 C:\MySQL、C:\ProgramData\MySQL、C:\Program Files\MySQL），配置电源与关闭 Windows Defender。" />
   <Options>
     <LogDirectory>logs</LogDirectory>
   </Options>
@@ -16,11 +16,57 @@
       </Task>
       <Task key="image-data-viewer" name="ImageDataViewer">
         <Install id="image-data-viewer-install" name="安装 ImageDataViewer"
-                 file="software/ImageDataViewer-1.3.37-win-x64-setup.exe"
+                 file="software/ImageDataViewer-1.3.38-win-x64-setup.exe"
                  arguments="/VERYSILENT /SUPPRESSMSGBOXES /NORESTART"
-                 sha256="F6EDC1A395C4987A42B864EA1699A9F8F937B87ECF5909DE6C00A888C54922BC"
+                 sha256="33E165E34E7C7C72294E05A5A459202E789B59D4C99BE569FF74EA6D50D0E9AA"
                  timeoutMinutes="15" successExitCodes="0,3010"
-                 skipIfFileExists="%ProgramFiles%/ImageDataViewer/ImageDataViewer.exe" />
+                 skipIfFileExists="%ProgramFiles%/ImageDataViewer/ImageDataViewer.App.exe" />
+      </Task>
+      <Task key="image-data-viewer-rules" name="导入模切工位规则">
+        <Command id="image-data-viewer-rules-import" name="导入模切工位规则包"
+                 language="powershell" timeoutMinutes="10" successExitCodes="0">
+          <Code><![CDATA[
+            $exe = 'C:\Program Files\ImageDataViewer\ImageDataViewer.App.exe'
+            if (-not (Test-Path -LiteralPath $exe)) {
+                throw "未找到：$exe"
+            }
+            $running = Get-Process -Name 'ImageDataViewer.App' -ErrorAction SilentlyContinue
+            if (-not $running) {
+                Start-Sleep -Seconds 2
+                $running = Get-Process -Name 'ImageDataViewer.App' -ErrorAction SilentlyContinue
+            }
+            if ($running) {
+                Write-Output '关闭安装后自动启动的 ImageDataViewer，准备导入规则。'
+                $running | Stop-Process -Force
+                Start-Sleep -Seconds 2
+            }
+            $package = Join-Path $env:IPCDEPLOYMENT_FILES_DIR '模切规则.idvpack'
+            if (-not (Test-Path -LiteralPath $package)) {
+                throw "未找到规则包：$package"
+            }
+            $rule = '模切规则'
+            $arguments = '--import-package "' + $package + '" --rule "' + $rule + '"'
+            $process = Start-Process -FilePath $exe -ArgumentList $arguments -Wait -PassThru
+            if ($process.ExitCode -eq 7) {
+                Write-Output 'ImageDataViewer 仍在运行，关闭后重试。'
+                Get-Process -Name 'ImageDataViewer.App' -ErrorAction SilentlyContinue | Stop-Process -Force
+                Start-Sleep -Seconds 2
+                $process = Start-Process -FilePath $exe -ArgumentList $arguments -Wait -PassThru
+            }
+            switch ($process.ExitCode) {
+                0 { Write-Output '规则导入并激活成功。' }
+                2 { throw '规则导入失败：参数错误或规则名不存在（退出码 2）。' }
+                3 { throw '规则导入失败：规则包读取失败（退出码 3）。' }
+                4 { throw '规则导入失败：包内没有可导入的规则（退出码 4）。' }
+                5 { Write-Output '警告：规则已导入，但激活失败（根目录不可用，退出码 5）；请在软件中手工修复。' }
+                6 { throw '规则导入失败：写入失败（退出码 6）。' }
+                7 { throw '规则导入失败：ImageDataViewer 正在运行（退出码 7）。' }
+                default { throw "规则导入失败，退出码 $process.ExitCode。" }
+            }
+            $log = Join-Path $env:ProgramData ('ImageDataViewer\Logs\' + (Get-Date -Format 'yyyy-MM-dd') + '.log')
+            Write-Output ("日志：$log")
+          ]]></Code>
+        </Command>
       </Task>
       <Task key="log-analyzer" name="日志分析工具">
         <Command id="log-analyzer-extract" name="解压并创建桌面快捷方式"
@@ -406,6 +452,50 @@ default-character-set=utf8mb4
           ]]></Code>
         </Command>
       </Task>
+      <Task key="heidi-sql" name="HeidiSQL">
+        <Command id="heidi-sql-install" name="解压 HeidiSQL 并创建桌面快捷方式"
+                 language="powershell" timeoutMinutes="10" successExitCodes="0">
+          <Code><![CDATA[
+            $target = Join-Path $env:LOCALAPPDATA 'Programs\HeidiSQL'
+            $zip = Join-Path $env:IPCDEPLOYMENT_DATA_ROOT 'software\HeidiSQL.zip'
+            if (-not (Test-Path -LiteralPath $zip)) {
+                throw "未找到 HeidiSQL 安装包：$zip"
+            }
+
+            $exe = Join-Path $target 'heidisql.exe'
+            if (-not (Test-Path -LiteralPath $exe)) {
+                if (Test-Path -LiteralPath $target) {
+                    Write-Output "清理不完整目录：$target"
+                    Remove-Item -LiteralPath $target -Recurse -Force
+                }
+                New-Item -ItemType Directory -Force -Path $target | Out-Null
+                Write-Output "解压 HeidiSQL 到：$target"
+                Expand-Archive -LiteralPath $zip -DestinationPath $target -Force
+            } else {
+                Write-Output "HeidiSQL 已存在，跳过解压：$target"
+            }
+
+            if (-not (Test-Path -LiteralPath $exe)) {
+                throw "解压后未找到：$exe"
+            }
+
+            $desktop = [Environment]::GetFolderPath('Desktop')
+            $lnk = Join-Path $desktop 'HeidiSQL.lnk'
+            $shell = New-Object -ComObject WScript.Shell
+            $shortcut = $shell.CreateShortcut($lnk)
+            $shortcut.TargetPath = $exe
+            $shortcut.WorkingDirectory = $target
+            $shortcut.Description = 'HeidiSQL'
+            $shortcut.Save()
+            if (-not (Test-Path -LiteralPath $lnk)) {
+                throw "桌面快捷方式创建失败：$lnk"
+            }
+
+            Write-Output "HeidiSQL 安装完成：$exe"
+            Write-Output "桌面快捷方式：$lnk"
+          ]]></Code>
+        </Command>
+      </Task>
     </Group>
     <Group key="system" name="系统优化">
       <Task key="high-performance" name="高性能与大小核">
@@ -605,4 +695,3 @@ DWORD:1
     </Group>
   </Groups>
 </Deployment>
-

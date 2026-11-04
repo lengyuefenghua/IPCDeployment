@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [string]$Configuration = 'Release'
 )
@@ -37,7 +37,8 @@ Get-ChildItem -LiteralPath $dataSource -Force | ForEach-Object {
     Copy-Item -LiteralPath $_.FullName -Destination $dataTarget -Recurse -Force
 }
 
-Copy-Item -LiteralPath (Join-Path $root 'README.md') -Destination (Join-Path $publish 'README.md') -Force
+Copy-Item -LiteralPath (Join-Path $root '使用说明.md') -Destination (Join-Path $publish '使用说明.md') -Force
+Copy-Item -LiteralPath (Join-Path $root 'XML配置说明.md') -Destination (Join-Path $publish 'XML配置说明.md') -Force
 Copy-Item -LiteralPath $configSource -Destination $publish -Recurse -Force
 
 if (-not (Get-ChildItem -LiteralPath $dataTarget -Force | Select-Object -First 1)) {

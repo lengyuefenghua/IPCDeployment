@@ -2,9 +2,9 @@
   "level": "patch",
   "phase": "finishing",
   "grilled": false,
-  "designConfirmed": true,
-  "planReviewed": true,
+  "designConfirmed": false,
+  "planReviewed": false,
   "reviewed": true,
-  "archived": false,
+  "archived": true,
   "confirmWaived": false
 }

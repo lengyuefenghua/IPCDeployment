@@ -20,7 +20,7 @@
 - `dotnet test` builds the app project as a dependency; run the build before packaging. Tests use temp directories and do not touch `data/`.
 - Tests are Windows net472 and use fake process runners plus temp dirs: no admin rights or real system changes needed.
 - Do not launch the app or run deployment operations during verification; build, test, package, and inspect files only. Real changes happen manually on a representative machine.
-- `dist/IPCDeployment` and `dist/IPCDeployment.zip` hold the package; the script copies the `src/IPCDeployment/bin/<Configuration>/net472` output, the root `config/` directory, `data/`, and the root `README.md`. `dist/` is gitignored. `scripts/build-debug.ps1` copies the same set to `build/debug` without a ZIP.
+- `dist/IPCDeployment` and `dist/IPCDeployment.zip` hold the package; the script copies the `src/IPCDeployment/bin/<Configuration>/net472` output, the root `config/` directory, `data/`, and the root `使用说明.md` / `XML配置说明.md`. `dist/` is gitignored. `scripts/build-debug.ps1` copies the same set to `build/debug` without a ZIP.
 
 ## Architecture and safety
 

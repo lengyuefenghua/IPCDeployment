@@ -1,0 +1,698 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Deployment schemaVersion="2.0" mode="execute">
+  <Meta name="卷绕工位部署" description="真实部署：安装看图、日志分析与显卡工具，强制重置 MySQL（删除 C:\MySQL、C:\ProgramData\MySQL、C:\Program Files\MySQL）并创建 inovance、bmian，配置电源与关闭 Windows Defender。" />
+  <Options>
+    <LogDirectory>logs</LogDirectory>
+  </Options>
+  <Groups>
+    <Group key="software" name="软件安装">
+      <Task key="image-viewer" name="ImageViewer">
+        <Install id="image-viewer-install" name="安装 ImageViewer"
+                 file="software/ImageViewer-1.2.4-win-x64-setup.exe"
+                 arguments="/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /TASKS=&quot;fileassociations&quot;"
+                 sha256="3A06A05946019C7880BE7F27B63FB5332A9896FB727AD5D3CB27D00099E7175D"
+                 timeoutMinutes="15" successExitCodes="0,3010"
+                 skipIfFileExists="%ProgramFiles%/ImageViewer/ImageViewer.exe" />
+      </Task>
+      <Task key="image-data-viewer" name="ImageDataViewer">
+        <Install id="image-data-viewer-install" name="安装 ImageDataViewer"
+                 file="software/ImageDataViewer-1.3.38-win-x64-setup.exe"
+                 arguments="/VERYSILENT /SUPPRESSMSGBOXES /NORESTART"
+                 sha256="33E165E34E7C7C72294E05A5A459202E789B59D4C99BE569FF74EA6D50D0E9AA"
+                 timeoutMinutes="15" successExitCodes="0,3010"
+                 skipIfFileExists="%ProgramFiles%/ImageDataViewer/ImageDataViewer.App.exe" />
+      </Task>
+      <Task key="image-data-viewer-rules" name="导入卷绕工位规则">
+        <Command id="image-data-viewer-rules-import" name="导入卷绕工位规则包"
+                 language="powershell" timeoutMinutes="10" successExitCodes="0">
+          <Code><![CDATA[
+            $exe = 'C:\Program Files\ImageDataViewer\ImageDataViewer.App.exe'
+            if (-not (Test-Path -LiteralPath $exe)) {
+                throw "未找到：$exe"
+            }
+            $running = Get-Process -Name 'ImageDataViewer.App' -ErrorAction SilentlyContinue
+            if (-not $running) {
+                Start-Sleep -Seconds 2
+                $running = Get-Process -Name 'ImageDataViewer.App' -ErrorAction SilentlyContinue
+            }
+            if ($running) {
+                Write-Output '关闭安装后自动启动的 ImageDataViewer，准备导入规则。'
+                $running | Stop-Process -Force
+                Start-Sleep -Seconds 2
+            }
+            $package = Join-Path $env:IPCDEPLOYMENT_FILES_DIR '卷绕规则.idvpack'
+            if (-not (Test-Path -LiteralPath $package)) {
+                throw "未找到规则包：$package"
+            }
+            $rule = '卷绕规则'
+            $arguments = '--import-package "' + $package + '" --rule "' + $rule + '"'
+            $process = Start-Process -FilePath $exe -ArgumentList $arguments -Wait -PassThru
+            if ($process.ExitCode -eq 7) {
+                Write-Output 'ImageDataViewer 仍在运行，关闭后重试。'
+                Get-Process -Name 'ImageDataViewer.App' -ErrorAction SilentlyContinue | Stop-Process -Force
+                Start-Sleep -Seconds 2
+                $process = Start-Process -FilePath $exe -ArgumentList $arguments -Wait -PassThru
+            }
+            switch ($process.ExitCode) {
+                0 { Write-Output '规则导入并激活成功。' }
+                2 { throw '规则导入失败：参数错误或规则名不存在（退出码 2）。' }
+                3 { throw '规则导入失败：规则包读取失败（退出码 3）。' }
+                4 { throw '规则导入失败：包内没有可导入的规则（退出码 4）。' }
+                5 { Write-Output '警告：规则已导入，但激活失败（根目录不可用，退出码 5）；请在软件中手工修复。' }
+                6 { throw '规则导入失败：写入失败（退出码 6）。' }
+                7 { throw '规则导入失败：ImageDataViewer 正在运行（退出码 7）。' }
+                default { throw "规则导入失败，退出码 $process.ExitCode。" }
+            }
+            $log = Join-Path $env:ProgramData ('ImageDataViewer\Logs\' + (Get-Date -Format 'yyyy-MM-dd') + '.log')
+            Write-Output ("日志：$log")
+          ]]></Code>
+        </Command>
+      </Task>
+      <Task key="log-analyzer" name="日志分析工具">
+        <Command id="log-analyzer-extract" name="解压并创建桌面快捷方式"
+                 language="powershell" timeoutMinutes="10" successExitCodes="0">
+          <Code><![CDATA[
+            $target = 'C:\Program Files\JinovisionLogAnalyzer'
+            $zip = Join-Path $env:IPCDEPLOYMENT_DATA_ROOT 'software\JinovisionLogAnalyzer-1.4.1-win-x64.zip'
+            if (-not (Test-Path -LiteralPath $zip)) {
+                throw "未找到日志分析工具安装包：$zip"
+            }
+            if (Test-Path -LiteralPath $target) {
+                Write-Output "清理旧目录：$target"
+                Remove-Item -LiteralPath $target -Recurse -Force
+            }
+            New-Item -ItemType Directory -Force -Path $target | Out-Null
+            Write-Output "解压日志分析工具到：$target"
+            Expand-Archive -LiteralPath $zip -DestinationPath $target -Force
+
+            $exe = Join-Path $target 'JinovisionLogAnalyzer.Wpf.exe'
+            if (-not (Test-Path -LiteralPath $exe)) {
+                throw "解压后未找到：$exe"
+            }
+
+            $desktop = [Environment]::GetFolderPath('CommonDesktopDirectory')
+            $lnk = Join-Path $desktop 'Jinovision 日志分析工具.lnk'
+            $shell = New-Object -ComObject WScript.Shell
+            $shortcut = $shell.CreateShortcut($lnk)
+            $shortcut.TargetPath = $exe
+            $shortcut.WorkingDirectory = $target
+            $shortcut.Description = 'Jinovision 日志分析工具'
+            $shortcut.Save()
+            if (-not (Test-Path -LiteralPath $lnk)) {
+                throw "桌面快捷方式创建失败：$lnk"
+            }
+
+            Write-Output "日志分析工具安装完成：$exe"
+            Write-Output "桌面快捷方式：$lnk"
+          ]]></Code>
+        </Command>
+      </Task>
+      <Task key="msi-afterburner" name="MSI Afterburner 占位">
+        <Install id="msi-afterburner-install" name="安装 MSI Afterburner"
+                 file="software/MSIAfterburnerSetup466.exe"
+                 arguments="/S"
+                 sha256="1E23BAFA8979865A14141E0EAC4B84ED8A61A399E6698AF4C0878CD500E09790"
+                 timeoutMinutes="15" successExitCodes="0"
+                 skipIfFileExists="%ProgramFiles(x86)%/MSI Afterburner/MSIAfterburner.exe" />
+        <Command id="msi-afterburner-autostart" name="创建计划任务自启"
+                 language="powershell" timeoutMinutes="5" successExitCodes="0">
+          <Code><![CDATA[
+            $candidates = @(
+                (Join-Path ${env:ProgramFiles(x86)} 'MSI Afterburner\MSIAfterburner.exe'),
+                (Join-Path $env:ProgramFiles 'MSI Afterburner\MSIAfterburner.exe')
+            )
+            $exe = $candidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+            if (-not $exe) {
+                throw '未找到 MSIAfterburner.exe，MSI Afterburner 可能未安装成功。'
+            }
+
+            $taskName = 'MSI Afterburner'
+            $action = New-ScheduledTaskAction -Execute $exe -Argument '/s'
+            $trigger = New-ScheduledTaskTrigger -AtLogOn
+            $user = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+            $principal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Highest
+            Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Force | Out-Null
+
+            $task = Get-ScheduledTask -TaskName $taskName -ErrorAction Stop
+            if (-not $task) {
+                throw "计划任务创建失败：$taskName"
+            }
+            Write-Output "MSI Afterburner 计划任务已创建：$taskName -> $exe /s"
+          ]]></Code>
+        </Command>
+      </Task>
+    </Group>
+    <Group key="file-copy" name="文件复制">
+      <Task key="jino-shared" name="JinoVision 共享库">
+        <Copy id="mysql-connector-copy" name="复制 MySqlConnector.dll"
+              source="files/MySqlConnector.dll"
+              target="C:\Program Files\JinoVision\bin.x64\dotnetShared\MySqlConnector.dll"
+              overwrite="ifDifferent" backup="false" />
+      </Task>
+    </Group>
+    <Group key="database" name="数据库">
+      <Task key="mysql" name="MySQL 数据库">
+        <Command id="mysql-clean" name="强制清理现有 MySQL" language="powershell"
+                 timeoutMinutes="10" successExitCodes="0">
+          <Code><![CDATA[
+            $dataDir = 'C:\MySQL'
+            $configDir = 'C:\ProgramData\MySQL'
+            $programRoot = 'C:\Program Files\MySQL'
+
+            # 强制清理：停止服务/进程，按卸载注册表卸载 MySQL Server，再删除数据与配置目录。
+            $services = Get-Service -Name 'MySQL*' -ErrorAction SilentlyContinue
+            foreach ($service in $services) {
+                Write-Output ("停止 MySQL 服务：" + $service.Name)
+                Stop-Service -Name $service.Name -Force -ErrorAction SilentlyContinue
+            }
+
+            $mysqldProcess = Get-Process -Name 'mysqld' -ErrorAction SilentlyContinue
+            if ($mysqldProcess) {
+                Write-Output '结束残留 mysqld.exe 进程'
+                & "$env:SystemRoot\System32\taskkill.exe" /IM mysqld.exe /F | Out-Null
+                Start-Sleep -Seconds 2
+            }
+
+            $uninstallRoots = @(
+                'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall',
+                'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall'
+            )
+            $productCodes = @()
+            foreach ($root in $uninstallRoots) {
+                if (-not (Test-Path -LiteralPath $root)) { continue }
+                foreach ($key in (Get-ChildItem -LiteralPath $root -ErrorAction SilentlyContinue)) {
+                    $item = Get-ItemProperty -Path $key.PSPath -ErrorAction SilentlyContinue
+                    if ($item -and $item.DisplayName -like 'MySQL Server*' -and $key.PSChildName -match '^\{[0-9A-Fa-f-]+\}$') {
+                        $productCodes += $key.PSChildName
+                    }
+                }
+            }
+            $productCodes = $productCodes | Select-Object -Unique
+            foreach ($code in $productCodes) {
+                Write-Output ("卸载 MySQL MSI：" + $code)
+                $process = Start-Process -FilePath "$env:SystemRoot\System32\msiexec.exe" `
+                    -ArgumentList @('/x', $code, '/qn', '/norestart') -Wait -PassThru
+                if ($process.ExitCode -ne 0 -and $process.ExitCode -ne 1605 -and $process.ExitCode -ne 3010) {
+                    throw ("卸载 MySQL 失败，退出码 " + $process.ExitCode + "：" + $code)
+                }
+            }
+
+            $services = Get-Service -Name 'MySQL*' -ErrorAction SilentlyContinue
+            foreach ($service in $services) {
+                Write-Output ("删除残留服务：" + $service.Name)
+                & "$env:SystemRoot\System32\sc.exe" delete $service.Name | Out-Null
+                if ($LASTEXITCODE -ne 0) {
+                    Write-Output ("服务删除返回 " + $LASTEXITCODE + "，由配置步骤继续校验：" + $service.Name)
+                }
+            }
+
+            foreach ($path in @($dataDir, $configDir, $programRoot)) {
+                if ($path -eq 'C:\' -or $path -eq 'C:') {
+                    throw "拒绝删除根路径：$path"
+                }
+                if (-not (Test-Path -LiteralPath $path)) { continue }
+                Write-Output ("删除目录：" + $path)
+                for ($attempt = 1; $attempt -le 3; $attempt++) {
+                    try {
+                        Remove-Item -LiteralPath $path -Recurse -Force -ErrorAction Stop
+                        break
+                    } catch {
+                        if ($attempt -eq 3) { throw }
+                        Start-Sleep -Seconds 2
+                    }
+                }
+            }
+            Write-Output 'MySQL 清理完成。'
+          ]]></Code>
+        </Command>
+        <Install id="mysql-install" name="安装 MySQL Server 8.4"
+                 file="software/mysql-8.4.7-winx64.msi"
+                 arguments="INSTALLDIR=&quot;C:\Program Files\MySQL\MySQL Server 8.4&quot;"
+                 sha256="0CD9B5B6209F952382D178F2749B558EB6C6DBD3ED116D242611D2C629B816E8"
+                 timeoutMinutes="20" successExitCodes="0,3010" />
+        <Command id="mysql-configure" name="初始化并配置 MySQL" language="powershell"
+                 timeoutMinutes="10" successExitCodes="0">
+          <Code><![CDATA[
+            $configDir = 'C:\ProgramData\MySQL\MySQL Server 8.4'
+            $configFile = Join-Path $configDir 'my.ini'
+            $dataDir = 'C:\MySQL'
+            $serviceName = 'MySQL84'
+            $port = 3306
+            $rootPassword = 'root'
+            $database = 'inovance'
+
+            $mysqld = $null
+            foreach ($root in @('C:\Program Files\MySQL', 'C:\Program Files (x86)\MySQL')) {
+                if (-not (Test-Path -LiteralPath $root)) { continue }
+                $found = Get-ChildItem -LiteralPath $root -Filter 'mysqld.exe' -Recurse -File -ErrorAction SilentlyContinue |
+                    Select-Object -First 1
+                if ($found) { $mysqld = $found.FullName; break }
+            }
+            if (-not $mysqld) {
+                throw '未找到 mysqld.exe，MySQL Server 可能未安装成功。'
+            }
+            $baseDir = Split-Path -Parent (Split-Path -Parent $mysqld)
+            $mysql = Join-Path $baseDir 'bin\mysql.exe'
+            if (-not (Test-Path -LiteralPath $mysql)) {
+                throw "未找到 mysql.exe：$mysql"
+            }
+            Write-Output "MySQL 安装目录：$baseDir"
+
+            New-Item -ItemType Directory -Force -Path $configDir | Out-Null
+            New-Item -ItemType Directory -Force -Path $dataDir | Out-Null
+
+            $baseDirIni = $baseDir.Replace('\', '/')
+            $ini = @"
+[mysqld]
+basedir=$baseDirIni
+datadir=C:/MySQL
+port=$port
+bind-address=0.0.0.0
+character-set-server=utf8mb4
+collation-server=utf8mb4_0900_ai_ci
+log-error=C:/MySQL/mysql-error.log
+
+[client]
+port=$port
+default-character-set=utf8mb4
+"@
+            [IO.File]::WriteAllText($configFile, $ini, (New-Object System.Text.UTF8Encoding($false)))
+
+            $systemDir = Join-Path $dataDir 'mysql'
+            if (-not (Test-Path -LiteralPath $systemDir)) {
+                $entries = @(Get-ChildItem -LiteralPath $dataDir -Force -ErrorAction SilentlyContinue)
+                if ($entries.Count -gt 0) {
+                    Write-Output "数据目录非空，清空：$dataDir"
+                    Get-ChildItem -LiteralPath $dataDir -Force | Remove-Item -Recurse -Force
+                }
+                Write-Output '初始化 MySQL 数据目录'
+                & $mysqld "--defaults-file=$configFile" --initialize-insecure --console
+                if ($LASTEXITCODE -ne 0) {
+                    throw "MySQL 初始化失败，退出码 $LASTEXITCODE"
+                }
+            }
+
+            & "$env:SystemRoot\System32\icacls.exe" $dataDir /grant '*S-1-5-18:(OI)(CI)F' | Out-Null
+            if ($LASTEXITCODE -ne 0) {
+                throw '为 SYSTEM 授予 C:\MySQL 权限失败。'
+            }
+
+            $service = Get-CimInstance Win32_Service -Filter "Name='$serviceName'" -ErrorAction SilentlyContinue
+            if ($service) {
+                # 残留服务可能仍指向旧数据目录，必须先确认它使用的是本次 my.ini。
+                if ($service.PathName -notlike "*$configFile*") {
+                    throw "服务 $serviceName 已存在但未使用 $configFile，请先清理。"
+                }
+            } else {
+                Write-Output "注册 MySQL 服务：$serviceName"
+                & $mysqld --install $serviceName "--defaults-file=$configFile"
+                if ($LASTEXITCODE -ne 0) {
+                    throw "MySQL 服务注册失败，退出码 $LASTEXITCODE"
+                }
+                Start-Sleep -Seconds 2
+            }
+            Set-Service -Name $serviceName -StartupType Automatic
+            $service = Get-Service -Name $serviceName
+            if ($service.Status -ne 'Running') {
+                Start-Service -Name $serviceName
+            }
+
+            $deadline = (Get-Date).AddSeconds(60)
+            $ready = $false
+            while ((Get-Date) -lt $deadline) {
+                $client = New-Object System.Net.Sockets.TcpClient
+                try {
+                    $client.Connect('127.0.0.1', $port)
+                    $ready = $true
+                    break
+                } catch {
+                    Start-Sleep -Milliseconds 500
+                } finally {
+                    $client.Dispose()
+                }
+            }
+            if (-not $ready) {
+                throw "MySQL 端口 $port 在 60 秒内未就绪。"
+            }
+
+            $mysqlArgs = @('--protocol=TCP', '-h', '127.0.0.1', '-P', "$port", '-u', 'root')
+            $emptyPassword = $false
+            try {
+                & $mysql @mysqlArgs --skip-password -e 'SELECT 1;' | Out-Null
+                if ($LASTEXITCODE -eq 0) { $emptyPassword = $true }
+            } catch { }
+
+            if ($emptyPassword) {
+                & $mysql @mysqlArgs --skip-password -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '$rootPassword';"
+                if ($LASTEXITCODE -ne 0) {
+                    throw '设置 root@localhost 密码失败。'
+                }
+            }
+
+            $env:MYSQL_PWD = $rootPassword
+            try {
+                # 局域网访问：root@'%' + bind-address=0.0.0.0 + 防火墙 3306。
+                $sql = "CREATE DATABASE IF NOT EXISTS ``$database`` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci; " +
+                       "CREATE DATABASE IF NOT EXISTS ``bmian`` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci; " +
+                       "CREATE USER IF NOT EXISTS 'root'@'%' IDENTIFIED BY '$rootPassword'; " +
+                       "ALTER USER 'root'@'%' IDENTIFIED BY '$rootPassword'; " +
+                       "GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION; " +
+                       "FLUSH PRIVILEGES;"
+                & $mysql @mysqlArgs -e $sql
+                if ($LASTEXITCODE -ne 0) {
+                    throw '创建 inovance/bmian 库或 root@% 失败。'
+                }
+
+                $dbCheck = & $mysql @mysqlArgs -N -e "SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME IN ('$database','bmian');"
+                if ($LASTEXITCODE -ne 0 -or $dbCheck -notcontains $database -or $dbCheck -notcontains 'bmian') {
+                    throw "数据库 $database 回读失败。"
+                }
+
+                $hostCheck = & $mysql @mysqlArgs -N -e "SELECT host FROM mysql.user WHERE user='root' AND host='%';"
+                if ($LASTEXITCODE -ne 0 -or $hostCheck -notcontains '%') {
+                    throw "root@'%' 回读失败。"
+                }
+
+                & $mysql @mysqlArgs -N -e "SHOW GRANTS FOR 'root'@'%';"
+                if ($LASTEXITCODE -ne 0) {
+                    throw "SHOW GRANTS 回读失败。"
+                }
+            } finally {
+                Remove-Item Env:\MYSQL_PWD -ErrorAction SilentlyContinue
+            }
+
+            $serviceInfo = Get-CimInstance Win32_Service -Filter "Name='$serviceName'" -ErrorAction Stop
+            if (-not $serviceInfo -or $serviceInfo.State -ne 'Running') {
+                throw "MySQL 服务 $serviceName 未运行。"
+            }
+            Write-Output ("MySQL 服务：$($serviceInfo.Name)，状态：$($serviceInfo.State)，账户：$($serviceInfo.StartName)")
+
+            $ruleName = 'MySQL 3306 (IPCDeployment)'
+            $rule = Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue
+            if (-not $rule) {
+                New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Protocol TCP -LocalPort $port -Action Allow -Profile Any | Out-Null
+            } else {
+                Enable-NetFirewallRule -DisplayName $ruleName
+            }
+            $rule = Get-NetFirewallRule -DisplayName $ruleName -ErrorAction Stop
+            if (-not $rule -or $rule.Enabled.ToString() -ne 'True') {
+                throw 'MySQL 防火墙规则未启用。'
+            }
+            Write-Output "MySQL 配置完成：$database，端口 $port，数据目录 $dataDir。"
+          ]]></Code>
+        </Command>
+        <Command id="mysql-verify" name="验证局域网访问" language="powershell"
+                 timeoutMinutes="10" successExitCodes="0">
+          <Code><![CDATA[
+            $mysql = $null
+            foreach ($root in @('C:\Program Files\MySQL', 'C:\Program Files (x86)\MySQL')) {
+                if (-not (Test-Path -LiteralPath $root)) { continue }
+                $found = Get-ChildItem -LiteralPath $root -Filter 'mysql.exe' -Recurse -File -ErrorAction SilentlyContinue |
+                    Select-Object -First 1
+                if ($found) { $mysql = $found.FullName; break }
+            }
+            if (-not $mysql) {
+                throw '未找到 mysql.exe，无法验证 MySQL。'
+            }
+
+            $configuration = Get-NetIPConfiguration -ErrorAction SilentlyContinue |
+                Where-Object { $_.IPv4Address -and $_.IPv4DefaultGateway } |
+                Select-Object -First 1
+            $ip = $null
+            if ($configuration) {
+                $ip = @($configuration.IPv4Address)[0].IPAddress
+            }
+            if (-not $ip) {
+                $ip = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+                    Where-Object { $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169.254.*' } |
+                    Select-Object -First 1 -ExpandProperty IPAddress
+            }
+            if (-not $ip) {
+                throw '未找到局域网 IPv4 地址，无法验证 root@% 连接。'
+            }
+
+            $env:MYSQL_PWD = 'root'
+            try {
+                $version = & $mysql --protocol=TCP -h $ip -P 3306 -u root -N -e 'SELECT VERSION();'
+                if ($LASTEXITCODE -ne 0) {
+                    throw "通过 $ip 连接 MySQL 失败。"
+                }
+                $db = & $mysql --protocol=TCP -h $ip -P 3306 -u root -N -e "SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME IN ('inovance','bmian');"
+                if ($LASTEXITCODE -ne 0 -or $db -notcontains 'inovance' -or $db -notcontains 'bmian') {
+                    throw "通过 $ip 未查到 inovance 或 bmian 库。"
+                }
+                $hosts = & $mysql --protocol=TCP -h $ip -P 3306 -u root -N -e "SELECT host FROM mysql.user WHERE user='root';"
+                if ($LASTEXITCODE -ne 0 -or $hosts -notcontains '%') {
+                    throw 'root@% 未生效。'
+                }
+                Write-Output ("MySQL 局域网验证通过：$ip，版本 " + ($version -join ' '))
+                Write-Output ("root host：" + ($hosts -join ', '))
+            } finally {
+                Remove-Item Env:\MYSQL_PWD -ErrorAction SilentlyContinue
+            }
+          ]]></Code>
+        </Command>
+      </Task>
+      <Task key="heidi-sql" name="HeidiSQL">
+        <Command id="heidi-sql-install" name="解压 HeidiSQL 并创建桌面快捷方式"
+                 language="powershell" timeoutMinutes="10" successExitCodes="0">
+          <Code><![CDATA[
+            $target = Join-Path $env:LOCALAPPDATA 'Programs\HeidiSQL'
+            $zip = Join-Path $env:IPCDEPLOYMENT_DATA_ROOT 'software\HeidiSQL.zip'
+            if (-not (Test-Path -LiteralPath $zip)) {
+                throw "未找到 HeidiSQL 安装包：$zip"
+            }
+
+            $exe = Join-Path $target 'heidisql.exe'
+            if (-not (Test-Path -LiteralPath $exe)) {
+                if (Test-Path -LiteralPath $target) {
+                    Write-Output "清理不完整目录：$target"
+                    Remove-Item -LiteralPath $target -Recurse -Force
+                }
+                New-Item -ItemType Directory -Force -Path $target | Out-Null
+                Write-Output "解压 HeidiSQL 到：$target"
+                Expand-Archive -LiteralPath $zip -DestinationPath $target -Force
+            } else {
+                Write-Output "HeidiSQL 已存在，跳过解压：$target"
+            }
+
+            if (-not (Test-Path -LiteralPath $exe)) {
+                throw "解压后未找到：$exe"
+            }
+
+            $desktop = [Environment]::GetFolderPath('Desktop')
+            $lnk = Join-Path $desktop 'HeidiSQL.lnk'
+            $shell = New-Object -ComObject WScript.Shell
+            $shortcut = $shell.CreateShortcut($lnk)
+            $shortcut.TargetPath = $exe
+            $shortcut.WorkingDirectory = $target
+            $shortcut.Description = 'HeidiSQL'
+            $shortcut.Save()
+            if (-not (Test-Path -LiteralPath $lnk)) {
+                throw "桌面快捷方式创建失败：$lnk"
+            }
+
+            Write-Output "HeidiSQL 安装完成：$exe"
+            Write-Output "桌面快捷方式：$lnk"
+          ]]></Code>
+        </Command>
+      </Task>
+    </Group>
+    <Group key="system" name="系统优化">
+      <Task key="high-performance" name="高性能与大小核">
+        <Command id="high-performance-apply" name="应用高性能与异类策略" language="powershell"
+                 timeoutMinutes="10" successExitCodes="0">
+          <Code><![CDATA[
+            $sub = '54533251-82be-4824-96c1-47b60b740d00'
+            $settings = @(
+                @{ Guid = '893dee8e-2bef-41e0-89c6-b55d0929964c'; Value = 100; Name = '最小处理器状态' },
+                @{ Guid = '0cc5b647-c1df-4637-891a-dec35c318583'; Value = 100; Name = '核心停车最小核心' },
+                @{ Guid = 'be337238-0d82-4146-a960-4f3749d470c7'; Value = 2; Name = '性能提升模式' },
+                @{ Guid = '45bcc044-d885-43e2-8605-ee0ec6e96b59'; Value = 100; Name = '性能提升策略' }
+            )
+            $hybrid = @(
+                @{ Guid = '93b8b6dc-0698-4d1c-9ee4-0644e900c85d'; Value = 2; Name = '异类线程调度策略' },
+                @{ Guid = 'bae08b81-2d5e-4688-ad6a-13243356654b'; Value = 2; Name = '异类短运行线程调度策略' },
+                @{ Guid = '7f2f5cfa-f10c-4823-b5e1-e93ae85f46b5'; Value = 0; Name = '生效的异类策略' }
+            )
+
+            & powercfg /setactive SCHEME_MIN
+            if ($LASTEXITCODE -ne 0) {
+                throw '切换高性能电源计划失败。'
+            }
+
+            foreach ($item in $settings) {
+                & powercfg /setacvalueindex SCHEME_CURRENT $sub $item.Guid $item.Value
+                if ($LASTEXITCODE -ne 0) {
+                    throw ("设置失败：" + $item.Name)
+                }
+            }
+
+            $settingsRoot = "HKLM:\SYSTEM\CurrentControlSet\Control\Power\PowerSettings\$sub"
+            foreach ($item in $hybrid) {
+                # 隐藏的异类策略；i9-12900K 应存在，缺失视为目标机不符合预期。
+                $path = Join-Path $settingsRoot $item.Guid
+                if (-not (Test-Path -LiteralPath $path)) {
+                    throw ("目标机未暴露异类电源设置：" + $item.Name + " (" + $item.Guid + ")。")
+                }
+                & powercfg /setacvalueindex SCHEME_CURRENT $sub $item.Guid $item.Value
+                if ($LASTEXITCODE -ne 0) {
+                    throw ("设置失败：" + $item.Name)
+                }
+            }
+
+            & powercfg /setactive SCHEME_CURRENT
+            if ($LASTEXITCODE -ne 0) {
+                throw '应用电源方案失败。'
+            }
+
+            $throttle = 'HKLM:\SYSTEM\CurrentControlSet\Control\Power\PowerThrottling'
+            if (-not (Test-Path -LiteralPath $throttle)) {
+                New-Item -Path $throttle -Force | Out-Null
+            }
+            New-ItemProperty -Path $throttle -Name 'PowerThrottlingOff' -Value 1 -PropertyType DWord -Force | Out-Null
+
+            $schemeOutput = & powercfg /getactivescheme
+            $match = [regex]::Match($schemeOutput, '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}')
+            if (-not $match.Success) {
+                throw '无法解析当前电源方案 GUID。'
+            }
+            $schemeGuid = $match.Value
+            if ($schemeGuid -ne '8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c') {
+                throw ("当前电源方案不是高性能：" + $schemeGuid)
+            }
+
+            $schemeRoot = "HKLM:\SYSTEM\CurrentControlSet\Control\Power\User\PowerSchemes\$schemeGuid\$sub"
+            foreach ($item in $settings + $hybrid) {
+                $path = Join-Path $schemeRoot $item.Guid
+                if (-not (Test-Path -LiteralPath $path)) {
+                    throw ("电源设置回读缺失：" + $item.Name)
+                }
+                $actual = (Get-ItemProperty -Path $path -Name 'ACSettingIndex' -ErrorAction Stop).ACSettingIndex
+                if ($actual -ne $item.Value) {
+                    throw ("电源设置回读不一致：" + $item.Name + "，期望 " + $item.Value + "，实际 " + $actual)
+                }
+                Write-Output ("已设置：" + $item.Name + " = " + $actual)
+            }
+
+            $throttleValue = (Get-ItemProperty -Path $throttle -Name 'PowerThrottlingOff' -ErrorAction Stop).PowerThrottlingOff
+            if ($throttleValue -ne 1) {
+                throw '电源节流关闭回读失败。'
+            }
+            Write-Output '高性能与大小核设置完成。'
+          ]]></Code>
+        </Command>
+      </Task>
+      <Task key="disable-defender" name="关闭 Windows Defender">
+        <Command id="disable-defender-apply" name="关闭 Defender 实时保护" language="powershell"
+                 timeoutMinutes="10" successExitCodes="0">
+          <Code><![CDATA[
+            $lgpo = Join-Path $env:IPCDEPLOYMENT_COMMANDS_DIR 'LGPO.exe'
+            if (-not (Test-Path -LiteralPath $lgpo)) {
+                throw "未找到 LGPO.exe：$lgpo"
+            }
+
+            $policyFile = Join-Path $env:TEMP 'IPCDeployment\defender-lgpo.txt'
+            $policyDir = Split-Path -Parent $policyFile
+            New-Item -ItemType Directory -Force -Path $policyDir | Out-Null
+            $policyText = @"
+Computer
+Software\Policies\Microsoft\Windows Defender
+DisableAntiSpyware
+DWORD:1
+
+Computer
+Software\Policies\Microsoft\Windows Defender\Real-Time Protection
+DisableRealtimeMonitoring
+DWORD:1
+
+Computer
+Software\Policies\Microsoft\Windows Defender\Real-Time Protection
+DisableBehaviorMonitoring
+DWORD:1
+
+Computer
+Software\Policies\Microsoft\Windows Defender\Real-Time Protection
+DisableOnAccessProtection
+DWORD:1
+
+Computer
+Software\Policies\Microsoft\Windows Defender\Real-Time Protection
+DisableScanOnRealtimeEnable
+DWORD:1
+
+Computer
+Software\Policies\Microsoft\Windows Defender\Real-Time Protection
+DisableIOAVProtection
+DWORD:1
+"@
+
+            try {
+                $policyText = $policyText.Replace("`r`n", "`n").Replace("`n", "`r`n")
+                [IO.File]::WriteAllText($policyFile, $policyText, (New-Object System.Text.ASCIIEncoding))
+
+                Write-Output '通过 LGPO 写入本地组策略'
+                & $lgpo /t $policyFile
+                if ($LASTEXITCODE -ne 0) {
+                    throw "LGPO 导入失败，退出码 $LASTEXITCODE"
+                }
+
+                Write-Output '执行 gpupdate /force'
+                & "$env:SystemRoot\System32\gpupdate.exe" /force
+                if ($LASTEXITCODE -ne 0) {
+                    throw "gpupdate 失败，退出码 $LASTEXITCODE"
+                }
+
+                $policyRoot = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender'
+                $rtpRoot = Join-Path $policyRoot 'Real-Time Protection'
+                $antiSpyware = Get-ItemProperty -Path $policyRoot -Name 'DisableAntiSpyware' -ErrorAction SilentlyContinue
+                if ($null -eq $antiSpyware -or $antiSpyware.DisableAntiSpyware -ne 1) {
+                    Write-Output '提示：DisableAntiSpyware 未写入实时注册表；Win10 1903+ 可能忽略此策略，但本地组策略已写入。'
+                }
+
+                $checks = @(
+                    @{ Path = $rtpRoot; Name = 'DisableRealtimeMonitoring' },
+                    @{ Path = $rtpRoot; Name = 'DisableBehaviorMonitoring' },
+                    @{ Path = $rtpRoot; Name = 'DisableOnAccessProtection' },
+                    @{ Path = $rtpRoot; Name = 'DisableScanOnRealtimeEnable' },
+                    @{ Path = $rtpRoot; Name = 'DisableIOAVProtection' }
+                )
+                foreach ($item in $checks) {
+                    $actual = (Get-ItemProperty -Path $item.Path -Name $item.Name -ErrorAction Stop).($item.Name)
+                    if ($actual -ne 1) {
+                        throw ("Defender 策略回读不一致：" + $item.Name)
+                    }
+                }
+                Write-Output '本地组策略回读通过。'
+            } finally {
+                Remove-Item -LiteralPath $policyFile -Force -ErrorAction SilentlyContinue
+            }
+
+            try {
+                Set-MpPreference -DisableRealtimeMonitoring $true -DisableBehaviorMonitoring $true `
+                    -DisableIOAVProtection $true -DisableScriptScanning $true -ErrorAction Stop
+                Write-Output 'Set-MpPreference 已应用。'
+            } catch {
+                Write-Output ("Set-MpPreference 失败：" + $_.Exception.Message)
+            }
+
+            $status = Get-MpComputerStatus -ErrorAction SilentlyContinue
+            if ($null -eq $status) {
+                $service = Get-Service -Name 'WinDefend' -ErrorAction SilentlyContinue
+                if ($service -and $service.Status -eq 'Stopped') {
+                    Write-Output 'Windows Defender 服务已停止。'
+                    exit 0
+                }
+                throw '无法读取 Defender 状态，且 WinDefend 服务未停止。'
+            }
+            if ($status.RealTimeProtectionEnabled -or $status.AntivirusEnabled) {
+                throw ("Defender 仍启用：RealTimeProtectionEnabled=" + $status.RealTimeProtectionEnabled +
+                    "，AntivirusEnabled=" + $status.AntivirusEnabled + "。请先关闭篡改保护后重试。")
+            }
+            Write-Output 'Windows Defender 已关闭。'
+          ]]></Code>
+        </Command>
+      </Task>
+    </Group>
+  </Groups>
+</Deployment>

@@ -1,2 +1,0 @@
-Put your deployment configuration in config/config.xml, or add another XML directly under config/ and pick it in the app.
-The shipped config/config.xml is execute mode; config/config.sample.xml stays preview and is never selected automatically.

@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [string]$Configuration = 'Debug'
 )
@@ -36,7 +36,8 @@ Get-ChildItem -LiteralPath $dataSource -Force | ForEach-Object {
     Copy-Item -LiteralPath $_.FullName -Destination $dataTarget -Recurse -Force
 }
 
-Copy-Item -LiteralPath (Join-Path $root 'README.md') -Destination (Join-Path $output 'README.md') -Force
+Copy-Item -LiteralPath (Join-Path $root '使用说明.md') -Destination (Join-Path $output '使用说明.md') -Force
+Copy-Item -LiteralPath (Join-Path $root 'XML配置说明.md') -Destination (Join-Path $output 'XML配置说明.md') -Force
 Copy-Item -LiteralPath $configSource -Destination $output -Recurse -Force
 
 Write-Output ('Created development build: ' + $output)
