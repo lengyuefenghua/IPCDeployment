@@ -35,3 +35,10 @@
 - 改动：删除 config/模切工位.xml、卷绕工位.xml、下料工位.xml、config.sample.xml 中全部 13 处 sha256 属性（ConfigLoader 视空白为不校验）；预检/执行逻辑与 UI 的 SHA-256 字段保持不变。
 - 验证：Select-String -Path config\*.xml -Pattern 'sha256=' 0 命中；dotnet test -c Debug 76 通过；package-portable.ps1 重新出包，dist/IPCDeployment/config 同样 0 命中。
 
+
+## 2026-11-04 修复预览页步骤行横向滚动条
+
+- 改动：MainWindow.xaml 的 OperationRowTemplate 把类型/详情/重启标记的横向 StackPanel 换成 Auto/*/Auto 三列 Grid，详情去掉 MaxWidth=360 改由星号列压缩并省略；选中任务的步骤 ListView 设 ScrollViewer.HorizontalScrollBarVisibility=Disabled。
+- 验证：`build-debug.ps1` 0 警告 0 错误；`dotnet test -c Debug` 76 通过；窗口 1180/1040 宽度下的视觉效果待用户目视确认（不截图）。
+
+- 补充：预览页任务列表（`SelectedGroup.Tasks`）同样加 `HorizontalScrollBarVisibility=Disabled`，避免长任务名撑出横向滚动条。

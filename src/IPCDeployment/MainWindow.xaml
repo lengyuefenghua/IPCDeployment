@@ -149,11 +149,16 @@
         <ui:TextBlock Text="{Binding StatusGlyph}" Foreground="{Binding StatusBrush}" FontSize="16" VerticalAlignment="Top" />
         <StackPanel Grid.Column="1" Margin="8,0,12,0">
           <ui:TextBlock Text="{Binding Name}" FontSize="13" Foreground="#172033" TextTrimming="CharacterEllipsis" />
-          <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+          <Grid Margin="0,3,0,0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
             <ui:TextBlock Text="{Binding TypeText}" Foreground="#54657E" FontSize="10" Margin="0,0,8,0" />
-            <ui:TextBlock Text="{Binding Detail}" FontSize="11" Foreground="#8492A5" TextTrimming="CharacterEllipsis" MaxWidth="360" />
-            <ui:TextBlock Text="{Binding RestartText}" FontSize="11" Foreground="#B45309" Margin="8,0,0,0" />
-          </StackPanel>
+            <ui:TextBlock Grid.Column="1" Text="{Binding Detail}" FontSize="11" Foreground="#8492A5" TextTrimming="CharacterEllipsis" />
+            <ui:TextBlock Grid.Column="2" Text="{Binding RestartText}" FontSize="11" Foreground="#B45309" Margin="8,0,0,0" />
+          </Grid>
         </StackPanel>
         <StackPanel Grid.Column="2" HorizontalAlignment="Right">
           <ui:TextBlock Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" FontSize="12" HorizontalAlignment="Right" />
@@ -331,7 +336,8 @@
                 </Grid.RowDefinitions>
                 <ui:TextBlock Text="任务列表" Style="{StaticResource CardHeading}" />
                 <ui:ListView Grid.Row="1" ItemsSource="{Binding SelectedGroup.Tasks}" SelectedItem="{Binding SelectedTask, Mode=TwoWay}"
-                             BorderThickness="0" Background="Transparent" ItemTemplate="{StaticResource TaskRowTemplate}" Margin="0,8,0,0" />
+                             BorderThickness="0" Background="Transparent" ItemTemplate="{StaticResource TaskRowTemplate}" Margin="0,8,0,0"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
               </Grid>
             </ui:Card>
 
@@ -351,7 +357,8 @@
                 </StackPanel>
 
                 <ui:ListView Grid.Row="1" ItemsSource="{Binding SelectedTaskSteps}" BorderThickness="0" Background="Transparent"
-                             ItemTemplate="{StaticResource OperationRowTemplate}" Margin="0,10,0,0" />
+                             ItemTemplate="{StaticResource OperationRowTemplate}" Margin="0,10,0,0"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
               </Grid>
             </ui:Card>
           </Grid>
