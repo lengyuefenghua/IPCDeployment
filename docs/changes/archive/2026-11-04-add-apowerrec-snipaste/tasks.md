@@ -49,4 +49,4 @@
 
 ## 5. Commit
 
-- [ ] 5.1 [人工] 人工验收通过并经用户明确许可后提交：`git add -- config/卷绕工位.xml config/模切工位.xml config/下料工位.xml 使用说明.md docs/changes/2026-11-04-add-apowerrec-snipaste`（`data/` 被 gitignore，不入库；只 commit 不 push）。
+- [x] 5.1 [人工] 人工验收通过并经用户明确许可后提交：`git add -- config/卷绕工位.xml config/模切工位.xml config/下料工位.xml 使用说明.md docs/changes/2026-11-04-add-apowerrec-snipaste`（`data/` 被 gitignore，不入库；只 commit 不 push）。
