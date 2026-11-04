@@ -14,11 +14,6 @@
                  successExitCodes="0,3010"
                  skipIfFileExists="%ProgramFiles%/ImageViewer/ImageViewer.exe" />
       </Task>
-      <Task key="sample-command" name="示例命令">
-        <Command id="sample-command" name="运行示例命令"
-                 file="commands/sample.cmd"
-                 timeoutMinutes="5" successExitCodes="0" />
-      </Task>
       <Task key="wait-after-install" name="安装后等待">
         <Delay id="wait-after-install" name="等待安装稳定" seconds="3" />
       </Task>
@@ -26,8 +21,8 @@
     <Group key="files" name="文件复制">
       <Task key="copy-sample-file" name="复制示例文件">
         <Copy id="sample-copy" name="复制示例文件"
-              source="files/sample.txt"
-              target="%TEMP%/IPCDeployment-Sample/sample.txt"
+              source="files/MySqlConnector.dll"
+              target="%TEMP%/IPCDeployment-Sample/MySqlConnector.dll"
               overwrite="ifDifferent" backup="false" />
       </Task>
       <Task key="copy-sample-directory" name="复制示例目录">
@@ -70,25 +65,7 @@
                    arguments="" enabled="false" />
       </Task>
     </Group>
-    <Group key="commands" name="自定义命令">
-      <Task key="sample-commands" name="示例命令">
-        <Command id="sample-command-2" name="运行示例命令"
-                 file="commands/sample.ps1"
-                 timeoutMinutes="5" successExitCodes="0" />
-      </Task>
-      <Task key="wait-after-command" name="命令后等待">
-        <Delay id="wait-after-command" name="等待命令收尾" seconds="1" />
-      </Task>
-    </Group>
     <Group key="scripts" name="脚本示例">
-      <Task key="sample-ps1" name="PowerShell 脚本">
-        <Command id="sample-ps1" name="运行 PowerShell 脚本"
-                 file="commands/sample.ps1" timeoutMinutes="5" successExitCodes="0" />
-      </Task>
-      <Task key="sample-cmd-shell" name="CMD 脚本">
-        <Command id="sample-cmd-shell" name="运行 CMD 脚本"
-                 file="commands/sample.cmd" timeoutMinutes="5" successExitCodes="0" />
-      </Task>
       <Task key="sample-inline-ps" name="内嵌 PowerShell">
         <Command id="sample-inline-ps" name="运行内嵌 PowerShell"
                  language="powershell" timeoutMinutes="5" successExitCodes="0">
@@ -118,8 +95,8 @@
     <Group key="verification" name="部署校验">
       <Task key="verify-files" name="验证示例文件">
         <Copy id="verify-copy" name="复核示例文件"
-              source="files/sample-guide.txt"
-              target="%TEMP%/IPCDeployment-Sample/verify-guide.txt"
+              source="files/MySqlConnector.dll"
+              target="%TEMP%/IPCDeployment-Sample/verify-MySqlConnector.dll"
               overwrite="ifDifferent" backup="false" />
       </Task>
       <Task key="wait-finish" name="收尾等待">

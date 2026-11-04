@@ -42,3 +42,8 @@
 - 验证：`build-debug.ps1` 0 警告 0 错误；`dotnet test -c Debug` 76 通过；窗口 1180/1040 宽度下的视觉效果待用户目视确认（不截图）。
 
 - 补充：预览页任务列表（`SelectedGroup.Tasks`）同样加 `HorizontalScrollBarVisibility=Disabled`，避免长任务名撑出横向滚动条。
+
+## 2026-11-04 删除示例素材并让示例配置自包含
+
+- 改动：删除 `data/commands/{.keep,sample.cmd,sample.ps1}`、`data/files/{sample.txt,sample-guide.txt}`（`data/` 被 gitignore，仅影响本地与打包产物）；`config/config.sample.xml` 删掉引用这些文件的三个任务与「自定义命令」组，两处 Copy 示例源改为 `files/MySqlConnector.dll`。
+- 验证：`dotnet test -c Debug` 78 通过（加载器会在解析期校验引用文件，示例配置因此必须同步）；`package-portable.ps1` 重新出包，`dist` 内无 sample 文件。
