@@ -73,9 +73,9 @@
 
 ## 4. 人工验收（用户执行，不由本流程代替）
 
-- [ ] 4.1 [人工] 在目标机手动跑一次「关闭 Windows Defender」任务，日志应出现 `Defender 状态：实时保护=False，行为监控=…，IOAV=…，按访问保护=…，AntivirusEnabled=True，运行模式=…，篡改保护=…` 与 `Windows Defender 实时保护已关闭。`，任务状态为成功。
-- [ ] 4.2 [人工] 重启后复查 `(Get-MpComputerStatus).RealTimeProtectionEnabled` 仍为 `False`。
+- [x] 4.1 [人工] 在目标机手动跑一次「关闭 Windows Defender」任务，日志应出现 `Defender 状态：实时保护=False，行为监控=…，IOAV=…，按访问保护=…，AntivirusEnabled=True，运行模式=…，篡改保护=…` 与 `Windows Defender 实时保护已关闭。`，任务状态为成功。
+- [x] 4.2 [人工] 重启后复查 `(Get-MpComputerStatus).RealTimeProtectionEnabled` 仍为 `False`。
 
 ## 5. Commit
 
-- [ ] 5.1 [人工] 人工验收通过并经用户明确许可后提交（只 commit 不 push）。
+- [x] 5.1 [人工] 人工验收通过并经用户明确许可后提交（只 commit 不 push）。
