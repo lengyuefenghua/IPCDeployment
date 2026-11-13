@@ -48,6 +48,11 @@
 - 改动：删除 `data/commands/{.keep,sample.cmd,sample.ps1}`、`data/files/{sample.txt,sample-guide.txt}`（`data/` 被 gitignore，仅影响本地与打包产物）；`config/config.sample.xml` 删掉引用这些文件的三个任务与「自定义命令」组，两处 Copy 示例源改为 `files/MySqlConnector.dll`。
 - 验证：`dotnet test -c Debug` 78 通过（加载器会在解析期校验引用文件，示例配置因此必须同步）；`package-portable.ps1` 重新出包，`dist` 内无 sample 文件。
 
+## 2026-11-06 版本号 1.0.0 与发布包名绑定 tag
+
+- 改动：\src/IPCDeployment/IPCDeployment.csproj\ 加 \<Version>1.0.0</Version>\、\IncludeSourceRevisionInInformationalVersion=false\、\PlatformTarget=x64\；主窗口标题栏改为显示程序集产品版本（\工控机部署工具 1.0.0\）；\scripts/package-portable.ps1\ 从 csproj 读版本并要求当前提交带同名 tag，产物改为 \dist/IPCDeployment-1.0.0-win-x64\ 与同名 ZIP；同步 \使用说明.md\、\docs/开发说明.md\、\AGENTS.md\。
+- 验证：无 tag 时打包报错退出；临时 tag \1.0.0\ 打包成功后已删除（正式 tag 待人工验收后创建）；包内 exe ProductVersion=1.0.0、PE machine=0x8664；Release 构建 0 警告 0 错误；\dotnet test -c Debug\ 82 通过；标题栏显示待用户目视确认（不截图）。
+
 ## 2026-11-13 标准模式一线操作手册
 
 - 改动：新增根目录 `操作手册.html`（单文件离线，仅覆盖标准配置 `config/config.xml`）；新增 `scripts/build-manual.ps1` 用本机 Edge/Chrome 无头模式生成 PDF；`scripts/package-portable.ps1` 在标准包内增加 `操作手册.pdf`，HTML 不随包。

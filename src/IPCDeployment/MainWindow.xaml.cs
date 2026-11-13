@@ -21,6 +21,7 @@ namespace IPCDeployment
         public MainWindow()
         {
             InitializeComponent();
+            ApplyVersionTitle();
             // ICO 多帧时 WPF 默认取 16x16 帧，任务栏与 Alt-Tab 会模糊，这里显式取 32x32 帧。
             Icon = LoadWindowIcon();
             viewModel = new DeploymentViewModel(AppDomain.CurrentDomain.BaseDirectory);
@@ -28,6 +29,14 @@ namespace IPCDeployment
             viewModel.PropertyChanged += ViewModel_PropertyChanged;
             Loaded += MainWindow_Loaded;
             Closing += MainWindow_Closing;
+        }
+
+        private void ApplyVersionTitle()
+        {
+            // 版本号来自程序集产品版本（csproj 的 <Version>），不在此处另写字面量。
+            string version = FileVersionInfo.GetVersionInfo(typeof(MainWindow).Assembly.Location).ProductVersion;
+            Title = string.IsNullOrWhiteSpace(version) ? "工控机部署工具" : "工控机部署工具 " + version.Trim();
+            MainTitleBar.Title = Title;
         }
 
         private static ImageSource LoadWindowIcon()
