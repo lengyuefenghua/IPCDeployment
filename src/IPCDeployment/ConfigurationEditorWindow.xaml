@@ -184,7 +184,9 @@
         </Grid.ColumnDefinitions>
         <ComboBox Grid.Column="0" Width="220" VerticalAlignment="Center"
                   ItemsSource="{Binding ConfigFiles}"
-                  SelectedItem="{Binding SelectedConfigFile, Mode=TwoWay}"
+                  DisplayMemberPath="DisplayName"
+                  SelectedValuePath="FileName"
+                  SelectedValue="{Binding SelectedConfigFile, Mode=TwoWay}"
                   DropDownOpened="ConfigCombo_DropDownOpened"
                   ToolTip="切换 config 文件夹下的配置（示例文件不列出）" />
         <ui:Button Grid.Column="1" Content="新建" Appearance="Secondary" Padding="12,6" Margin="8,0,0,0"

@@ -242,6 +242,12 @@ namespace IPCDeployment.Core
                 }
                 return string.Empty;
             }
+            if (node.Kind == EditorNodeKind.Task && field.Name == "enabled")
+            {
+                // 缺省即启用；只有显式 false 才是禁用。
+                var enabled = node.Element.Attribute("enabled");
+                return enabled == null ? "true" : enabled.Value;
+            }
             if (node.Kind == EditorNodeKind.Step && field.Name == "code")
             {
                 var code = node.Element.Element("Code");
@@ -301,6 +307,15 @@ namespace IPCDeployment.Core
                         }
                         break;
                 }
+                IsDirty = true;
+                return;
+            }
+
+            if (node.Kind == EditorNodeKind.Task && field.Name == "enabled")
+            {
+                // 启用是默认值，移除属性保持 XML 简洁；禁用才写 enabled="false"。
+                var isEnabled = !string.Equals(text, "false", StringComparison.OrdinalIgnoreCase);
+                node.Element.SetAttributeValue("enabled", isEnabled ? null : "false");
                 IsDirty = true;
                 return;
             }

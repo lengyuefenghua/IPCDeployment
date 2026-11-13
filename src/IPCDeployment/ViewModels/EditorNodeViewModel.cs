@@ -45,7 +45,10 @@ namespace IPCDeployment.ViewModels
                     case EditorNodeKind.Group:
                         return "分组";
                     case EditorNodeKind.Task:
-                        return "任务";
+                        var enabled = Node.Element == null ? null : (string)Node.Element.Attribute("enabled");
+                        return string.Equals(enabled, "false", StringComparison.OrdinalIgnoreCase)
+                            ? "任务 · 已禁用"
+                            : "任务";
                     default:
                         return Node.ElementName;
                 }

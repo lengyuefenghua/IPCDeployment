@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.NetworkInformation;
@@ -38,7 +39,16 @@ namespace IPCDeployment.Core
                 AddError(result, 0, 0, "日志目录无效：" + exception.Message);
             }
 
-            foreach (var operation in config.Operations)
+            // 禁用任务不进入执行队列，其运行期预检（哈希、服务/网卡/自启目标等）也不参与，
+            // 避免已停用的选装任务因本机环境缺失挡住整份配置执行。
+            var disabledTaskKeys = new HashSet<string>(
+                config.Tasks.Where(task => !task.Enabled && task.Key != null).Select(task => task.Key),
+                StringComparer.OrdinalIgnoreCase);
+            var checkedOperations = config.Operations
+                .Where(operation => !IsDisabled(operation, disabledTaskKeys))
+                .ToList();
+
+            foreach (var operation in checkedOperations)
             {
                 var install = operation as InstallOperation;
                 if (install != null)
@@ -79,9 +89,15 @@ namespace IPCDeployment.Core
                 }
             }
 
-            CheckAdvancedPropertyOrder(config, result);
-            CheckPowerOrder(config, result);
+            CheckAdvancedPropertyOrder(checkedOperations, result);
+            CheckPowerOrder(checkedOperations, result);
             return result;
+        }
+
+        private static bool IsDisabled(DeploymentOperation operation, ISet<string> disabledTaskKeys)
+        {
+            return operation != null && !string.IsNullOrEmpty(operation.TaskKey) &&
+                disabledTaskKeys.Contains(operation.TaskKey);
         }
 
         private static void CheckInstallerHash(InstallOperation operation, PreflightResult result)
@@ -108,9 +124,9 @@ namespace IPCDeployment.Core
             }
         }
 
-        private static void CheckAdvancedPropertyOrder(DeploymentConfig config, PreflightResult result)
+        private static void CheckAdvancedPropertyOrder(IList<DeploymentOperation> operations, PreflightResult result)
         {
-            var networks = config.Operations.OfType<NetworkOperation>()
+            var networks = operations.OfType<NetworkOperation>()
                 .Where(n => n.Kind == NetworkOperationKind.AdvancedProperty)
                 .ToList();
 
@@ -132,15 +148,15 @@ namespace IPCDeployment.Core
             }
         }
 
-        private static void CheckPowerOrder(DeploymentConfig config, PreflightResult result)
+        private static void CheckPowerOrder(IList<DeploymentOperation> operations, PreflightResult result)
         {
-            var firstPower = config.Operations.FirstOrDefault(op => op is PowerOperation);
+            var firstPower = operations.FirstOrDefault(op => op is PowerOperation);
             if (firstPower == null)
             {
                 return;
             }
 
-            var later = config.Operations.FirstOrDefault(op => op.Order > firstPower.Order && !(op is PowerOperation));
+            var later = operations.FirstOrDefault(op => op.Order > firstPower.Order && !(op is PowerOperation));
             if (later != null)
             {
                 AddWarning(result, firstPower, "Power 操作之后仍有其他操作；推荐把电源设置放在队列末尾。");

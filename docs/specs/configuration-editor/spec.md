@@ -32,6 +32,12 @@
 #### Scenario: 点击问题条目
 - When 用户点击问题面板中的一条错误, the system SHALL 选中对应节点并滚动到出错字段。
 
+### Requirement: 任务启用开关
+任务属性面板 MUST 提供启用开关；`enabled` 缺省为 `true`，取消勾选 MUST 写入 `enabled="false"`，重新勾选 MUST 移除该属性；禁用任务的树节点 MUST 显示“已禁用”。
+
+#### Scenario: 禁用任务
+- When 用户取消任务的启用勾选并保存, the system SHALL 写回 `enabled="false"`，重新打开后该任务仍显示为已禁用。
+
 ### Requirement: 字段输入助手
 源路径类字段 MUST 提供 `data/` 下现有文件或目录的候选下拉，且仍允许自由输入；候选值 MUST 满足路径策略的前缀与扩展名规则。
 

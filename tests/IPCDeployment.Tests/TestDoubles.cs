@@ -62,6 +62,7 @@ namespace IPCDeployment.Tests
         public int CallCount { get; private set; }
         public string FailOperationId { get; set; }
         public string CancelOperationId { get; set; }
+        public string WarnOperationId { get; set; }
         public List<string> ExecutedIds { get; private set; }
 
         public RecordingExecutor(string type)
@@ -77,6 +78,10 @@ namespace IPCDeployment.Tests
             if (string.Equals(operation.Id, CancelOperationId, StringComparison.Ordinal))
             {
                 return Task.FromResult(OperationResult.Cancelled(operation.Id, "cancelled"));
+            }
+            if (string.Equals(operation.Id, WarnOperationId, StringComparison.Ordinal))
+            {
+                return Task.FromResult(OperationResult.Warning(operation.Id, "warning"));
             }
             if (string.Equals(operation.Id, FailOperationId, StringComparison.Ordinal))
             {

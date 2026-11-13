@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Deployment schemaVersion="2.0" mode="execute">
-  <Meta name="卷绕工位部署" description="真实部署：安装看图、日志分析、录屏、截图与显卡工具，强制重置 MySQL（删除 C:\MySQL、C:\ProgramData\MySQL、C:\Program Files\MySQL）并创建 inovance、bmian，配置电源与关闭 Windows Defender。" />
+  <Meta name="模切工位部署" description="真实部署：安装看图、日志分析、录屏、截图与显卡工具，强制重置 MySQL（删除 C:\MySQL、C:\ProgramData\MySQL、C:\Program Files\MySQL），配置电源与关闭 Windows Defender。" />
   <Options>
     <LogDirectory>logs</LogDirectory>
   </Options>
@@ -44,8 +44,8 @@
         </Command>
 
       </Task>
-      <Task key="image-data-viewer-rules" name="导入卷绕工位规则">
-        <Command id="image-data-viewer-rules-import" name="导入卷绕工位规则包"
+      <Task key="image-data-viewer-rules" name="导入模切工位规则">
+        <Command id="image-data-viewer-rules-import" name="导入模切工位规则包"
                  language="powershell" timeoutMinutes="10" successExitCodes="0">
           <Code><![CDATA[
             $exe = 'C:\Program Files\ImageDataViewer\ImageDataViewer.App.exe'
@@ -62,11 +62,11 @@
                 $running | Stop-Process -Force
                 Start-Sleep -Seconds 2
             }
-            $package = Join-Path $env:IPCDEPLOYMENT_FILES_DIR '卷绕规则.idvpack'
+            $package = Join-Path $env:IPCDEPLOYMENT_FILES_DIR '模切规则.idvpack'
             if (-not (Test-Path -LiteralPath $package)) {
                 throw "未找到规则包：$package"
             }
-            $rule = '卷绕规则'
+            $rule = '模切规则'
             $arguments = '--import-package "' + $package + '" --rule "' + $rule + '"'
             $process = Start-Process -FilePath $exe -ArgumentList $arguments -Wait -PassThru
             if ($process.ExitCode -eq 7) {
@@ -219,12 +219,50 @@
           ]]></Code>
         </Command>
       </Task>
-      <Task key="msi-afterburner" name="MSI Afterburner 占位">
-        <Install id="msi-afterburner-install" name="安装 MSI Afterburner"
-                 file="software/MSIAfterburnerSetup466.exe"
-                 arguments="/S"
-                 timeoutMinutes="15" successExitCodes="0"
-                 skipIfFileExists="%ProgramFiles(x86)%/MSI Afterburner/MSIAfterburner.exe" />
+      <Task key="msi-afterburner" name="MSI Afterburner">
+        <Command id="msi-afterburner-install" name="解压 MSI Afterburner 并创建桌面快捷方式"
+                 language="powershell" timeoutMinutes="10" successExitCodes="0">
+          <Code><![CDATA[
+            $target = Join-Path ${env:ProgramFiles(x86)} 'MSI Afterburner'
+            $zip = Join-Path $env:IPCDEPLOYMENT_DATA_ROOT 'software\MSIAfterburner-portable.zip'
+            if (-not (Test-Path -LiteralPath $zip)) {
+                throw "未找到 MSI Afterburner 便携包：$zip"
+            }
+
+            $exe = Join-Path $target 'MSIAfterburner.exe'
+            if (Test-Path -LiteralPath $exe) {
+                Write-Output "MSI Afterburner 已存在，跳过解压：$target"
+            } else {
+                # 目标目录存在但 exe 缺失时按不完整解压处理，清空后重解。
+                if (Test-Path -LiteralPath $target) {
+                    Write-Output "清理不完整目录：$target"
+                    Remove-Item -LiteralPath $target -Recurse -Force
+                }
+                New-Item -ItemType Directory -Force -Path $target | Out-Null
+                Write-Output "解压 MSI Afterburner 到：$target"
+                Expand-Archive -LiteralPath $zip -DestinationPath $target -Force
+            }
+
+            if (-not (Test-Path -LiteralPath $exe)) {
+                throw "解压后未找到：$exe"
+            }
+
+            $desktop = [Environment]::GetFolderPath('CommonDesktopDirectory')
+            $lnk = Join-Path $desktop 'MSI Afterburner.lnk'
+            $shell = New-Object -ComObject WScript.Shell
+            $shortcut = $shell.CreateShortcut($lnk)
+            $shortcut.TargetPath = $exe
+            $shortcut.WorkingDirectory = $target
+            $shortcut.Description = '微星显卡超频工具 MSI Afterburner'
+            $shortcut.Save()
+            if (-not (Test-Path -LiteralPath $lnk)) {
+                throw "桌面快捷方式创建失败：$lnk"
+            }
+
+            Write-Output "MSI Afterburner 安装完成：$exe"
+            Write-Output "桌面快捷方式：$lnk"
+          ]]></Code>
+        </Command>
         <Command id="msi-afterburner-autostart" name="创建计划任务自启"
                  language="powershell" timeoutMinutes="5" successExitCodes="0">
           <Code><![CDATA[
@@ -463,18 +501,17 @@ default-character-set=utf8mb4
             try {
                 # 局域网访问：root@'%' + bind-address=0.0.0.0 + 防火墙 3306。
                 $sql = "CREATE DATABASE IF NOT EXISTS ``$database`` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci; " +
-                       "CREATE DATABASE IF NOT EXISTS ``bmian`` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci; " +
                        "CREATE USER IF NOT EXISTS 'root'@'%' IDENTIFIED BY '$rootPassword'; " +
                        "ALTER USER 'root'@'%' IDENTIFIED BY '$rootPassword'; " +
                        "GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION; " +
                        "FLUSH PRIVILEGES;"
                 & $mysql @mysqlArgs -e $sql
                 if ($LASTEXITCODE -ne 0) {
-                    throw '创建 inovance/bmian 库或 root@% 失败。'
+                    throw '创建 inovance 库或 root@% 失败。'
                 }
 
-                $dbCheck = & $mysql @mysqlArgs -N -e "SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME IN ('$database','bmian');"
-                if ($LASTEXITCODE -ne 0 -or $dbCheck -notcontains $database -or $dbCheck -notcontains 'bmian') {
+                $dbCheck = & $mysql @mysqlArgs -N -e "SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME='$database';"
+                if ($LASTEXITCODE -ne 0 -or $dbCheck -notcontains $database) {
                     throw "数据库 $database 回读失败。"
                 }
 
@@ -547,9 +584,9 @@ default-character-set=utf8mb4
                 if ($LASTEXITCODE -ne 0) {
                     throw "通过 $ip 连接 MySQL 失败。"
                 }
-                $db = & $mysql --protocol=TCP -h $ip -P 3306 -u root -N -e "SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME IN ('inovance','bmian');"
-                if ($LASTEXITCODE -ne 0 -or $db -notcontains 'inovance' -or $db -notcontains 'bmian') {
-                    throw "通过 $ip 未查到 inovance 或 bmian 库。"
+                $db = & $mysql --protocol=TCP -h $ip -P 3306 -u root -N -e "SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME='inovance';"
+                if ($LASTEXITCODE -ne 0 -or $db -notcontains 'inovance') {
+                    throw "通过 $ip 未查到 inovance 库。"
                 }
                 $hosts = & $mysql --protocol=TCP -h $ip -P 3306 -u root -N -e "SELECT host FROM mysql.user WHERE user='root';"
                 if ($LASTEXITCODE -ne 0 -or $hosts -notcontains '%') {
@@ -695,7 +732,7 @@ default-character-set=utf8mb4
       </Task>
       <Task key="disable-defender" name="关闭 Windows Defender">
         <Command id="disable-defender-apply" name="关闭 Defender 实时保护" language="powershell"
-                 timeoutMinutes="10" successExitCodes="0">
+                 timeoutMinutes="10" successExitCodes="0" warnExitCodes="201">
           <Code><![CDATA[
             $lgpo = Join-Path $env:IPCDEPLOYMENT_COMMANDS_DIR 'LGPO.exe'
             if (-not (Test-Path -LiteralPath $lgpo)) {
@@ -805,6 +842,11 @@ DWORD:1
                 "，篡改保护=" + $status.IsTamperProtected)
 
             if ($status.RealTimeProtectionEnabled -ne $false) {
+                if ($status.IsTamperProtected) {
+                    Write-Output '警告：篡改保护已开启，Defender 实时保护无法关闭。'
+                    Write-Output '操作：打开 Windows 安全中心 → 病毒和威胁防护 → 管理设置，关闭“篡改保护”，然后重新运行本软件。'
+                    exit 201
+                }
                 throw ("Defender 实时保护未确认关闭（实时保护=" + $status.RealTimeProtectionEnabled +
                     "，篡改保护=" + $status.IsTamperProtected +
                     "，运行模式=" + $status.AMRunningMode + "）。请先关闭篡改保护后重试。")

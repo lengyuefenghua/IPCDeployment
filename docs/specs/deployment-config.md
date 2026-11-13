@@ -2,7 +2,7 @@
 
 ## File and directory
 
-- `config/` holds selectable configurations as direct child `*.xml` files; `config/config.xml` is the default configuration and `config/config.sample.xml` is a reference example.
+- `config/` holds selectable configurations as direct child `*.xml` files; `config/config.xml` is the default configuration and `config/config.sample.xml` is a reference example. The repository also keeps the three lithium line configs in `config-lithium/`; they ship as a separate package and only become selectable after being copied into `config/`.
 - The program loads `config/config.xml` on startup; when it is missing, the first non-sample XML in `config/` is loaded. `config.sample.xml` is never listed, selected, or loaded automatically.
 - The configuration file must be a direct child of `config/`; a path outside it is rejected.
 - The configuration editor may only open and save files inside `config/`.
@@ -42,6 +42,7 @@
 - `Group` has required `key` and `name`. Name is unique after trimming and must not be empty.
 - `Group` contains one or more `Task` elements.
 - `Task` has required `key` and `name`; task keys are unique across the configuration.
+- `Task` may declare optional `enabled` (default `true`). `enabled="false"` disables the whole task: it is not executed, publishes no task events, produces no step results, does not count toward progress, and its runtime preflight checks are skipped. Disabled tasks still require a key, a name, and at least one step.
 - `Task` contains one or more step elements.
 - The supported step elements are `Install`, `Copy`, `Registry`, `Command`, `Service`, `Network`, `Power`, `AutoStart`, and `Delay`.
 - Unknown elements and unknown attributes are rejected. The legacy `onError` attribute is not supported.
@@ -93,7 +94,7 @@ Attributes: `hive`, `key`, `valueName`, `valueType`, `value`, `view`, `expectedB
 
 ### Command
 
-Attributes: `file`, `arguments`, `workingDirectory`, `timeoutMinutes`, `successExitCodes`, `language`, `strict`.
+Attributes: `file`, `arguments`, `workingDirectory`, `timeoutMinutes`, `successExitCodes`, `warnExitCodes`, `language`, `strict`.
 Child element: `Code`.
 
 - `file` is a data-relative path under `commands/`, must exist, and must use `.exe`, `.cmd`, `.bat`, or `.ps1`.
@@ -107,6 +108,7 @@ Child element: `Code`.
 - Scripts receive `IPCDEPLOYMENT_APP_ROOT`, `IPCDEPLOYMENT_DATA_ROOT`, `IPCDEPLOYMENT_COMMANDS_DIR`, `IPCDEPLOYMENT_FILES_DIR`, and `IPCDEPLOYMENT_CONFIG_PATH`.
 - `timeoutMinutes` is 1 to 60; default 10.
 - `successExitCodes` is a comma-separated integer list; default 0.
+- `warnExitCodes` is an optional comma-separated integer list. An exit code in this list marks the step as warning instead of failure; the task continues with later steps. It must not overlap `successExitCodes`.
 - Output is streamed to the log, capped, and redacted. Commands always run; they have no automatic idempotency.
 - Downloads and arbitrary interpreter paths are not supported.
 
@@ -191,7 +193,7 @@ Attributes: `hive`, `valueName`, `command`, `arguments`, `enabled`.
 - Group names are compared after trimming and ignoring case.
 - Errors include line and column. Errors block execution; warnings are displayed but do not block a preview.
 - Source files are checked for existence. Installer hashes are checked during preflight and again before launching.
-- Administrator status, log directory writability, adapter existence, service presence, autostart target presence, and SpeedDuplex order are checked.
+- Administrator status, log directory writability, adapter existence, service presence, autostart target presence, and SpeedDuplex order are checked for enabled tasks only.
 - Service absence and autostart target absence are warnings because an earlier step may create them.
 
 ## Execution and failure
@@ -199,19 +201,19 @@ Attributes: `hive`, `valueName`, `command`, `arguments`, `enabled`.
 - preview never creates a process or modifies the system.
 - execute requires confirmed=true, a valid configuration, and a user confirmation in the UI.
 - Groups, tasks, and steps run in document order.
-- Each task publishes TaskStarted and TaskCompleted; each executed step publishes OperationStarted and OperationCompleted.
-- Any failed step ends its task immediately. Remaining steps in that task are reported as not executed.
+- Each enabled task publishes TaskStarted and TaskCompleted; each executed step publishes OperationStarted and OperationCompleted. A disabled task publishes no task event and produces a single task result with status disabled.
+- Any failed step ends its task immediately. Remaining steps in that task are reported as not executed. A warning step does not end the task; later steps still run, and the task ends as warning if nothing failed.
 - The next task starts automatically, including tasks in later groups. There is no deployment-wide failure state.
 - Cancellation ends the current task, marks remaining steps and tasks not executed, and does not count unstarted tasks as ended.
 - Timeouts terminate the process tree. Output is capped; secrets matching password, pwd, token, or secret are redacted.
-- The report lists task and step success, failure, cancellation, not-executed, elapsed time, restart-required, and the log path.
+- The report lists task and step success, warning, failure, cancellation, not-executed, disabled task count, elapsed time, restart-required, and the log path.
 - There is no automatic rollback. A failed step may leave partial changes.
 
 ## Progress
 
-- Global progress is ended tasks divided by total tasks. A task ends when all its steps are terminal, or when a step failure or cancellation ends it early.
+- Global progress is ended tasks divided by enabled tasks. A task ends when all its steps are terminal, or when a step failure or cancellation ends it early. Disabled tasks are excluded from the denominator.
 - Task progress is executed steps divided by that task's total steps. Not-executed steps do not advance task progress.
-- Failed tasks count as ended for global progress, but their task status remains failed.
+- Failed tasks count as ended for global progress, but their task status remains failed. Warning tasks also count as ended, but are reported as warning rather than success.
 - Groups do not have a separate progress ring; group status is derived from task results.
 
 ## Logs

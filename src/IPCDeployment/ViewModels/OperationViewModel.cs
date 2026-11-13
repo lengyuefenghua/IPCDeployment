@@ -13,6 +13,7 @@ namespace IPCDeployment.ViewModels
         private static readonly Brush AlreadySatisfiedBrush = CreateBrush("#B45309");
         private static readonly Brush CancelledBrush = CreateBrush("#6B7280");
         private static readonly Brush NotExecutedBrush = CreateBrush("#6B7280");
+        private static readonly Brush WarningBrush = CreateBrush("#B45309");
 
         private OperationStatus status;
         private string statusText = "等待";
@@ -144,6 +145,8 @@ namespace IPCDeployment.ViewModels
             if (value == OperationStatus.AlreadySatisfied) return "已满足";
             if (value == OperationStatus.Cancelled) return "已取消";
             if (value == OperationStatus.NotExecuted) return "未执行";
+            if (value == OperationStatus.Disabled) return "已禁用";
+            if (value == OperationStatus.Warning) return "警告";
             return "等待";
         }
 
@@ -155,6 +158,8 @@ namespace IPCDeployment.ViewModels
             if (value == OperationStatus.AlreadySatisfied) return "–";
             if (value == OperationStatus.Cancelled) return "■";
             if (value == OperationStatus.NotExecuted) return "–";
+            if (value == OperationStatus.Disabled) return "–";
+            if (value == OperationStatus.Warning) return "!";
             return "○";
         }
 
@@ -166,6 +171,8 @@ namespace IPCDeployment.ViewModels
             if (value == OperationStatus.AlreadySatisfied) return AlreadySatisfiedBrush;
             if (value == OperationStatus.Cancelled) return CancelledBrush;
             if (value == OperationStatus.NotExecuted) return NotExecutedBrush;
+            if (value == OperationStatus.Disabled) return NotExecutedBrush;
+            if (value == OperationStatus.Warning) return WarningBrush;
             return PendingBrush;
         }
 

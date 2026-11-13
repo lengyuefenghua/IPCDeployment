@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Deployment schemaVersion="2.0" mode="execute">
-  <Meta name="下料工位部署" description="真实部署：安装看图、日志分析、录屏、截图与显卡工具，强制重置 MySQL（删除 C:\MySQL、C:\ProgramData\MySQL、C:\Program Files\MySQL），配置电源与关闭 Windows Defender。" />
+  <Meta name="标准配置" description="通用基线：安装看图、日志分析、录屏、截图、显卡、抓包、进程与搜索工具，配置高性能电源并关闭 Windows Defender；不含看图规则包与数据库。" />
   <Options>
     <LogDirectory>logs</LogDirectory>
   </Options>
@@ -40,53 +40,6 @@
             }
 
             Write-Output "ImageDataViewer 快捷方式：$lnk"
-          ]]></Code>
-        </Command>
-
-      </Task>
-      <Task key="image-data-viewer-rules" name="导入下料工位规则">
-        <Command id="image-data-viewer-rules-import" name="导入下料工位规则包"
-                 language="powershell" timeoutMinutes="10" successExitCodes="0">
-          <Code><![CDATA[
-            $exe = 'C:\Program Files\ImageDataViewer\ImageDataViewer.App.exe'
-            if (-not (Test-Path -LiteralPath $exe)) {
-                throw "未找到：$exe"
-            }
-            $running = Get-Process -Name 'ImageDataViewer.App' -ErrorAction SilentlyContinue
-            if (-not $running) {
-                Start-Sleep -Seconds 2
-                $running = Get-Process -Name 'ImageDataViewer.App' -ErrorAction SilentlyContinue
-            }
-            if ($running) {
-                Write-Output '关闭安装后自动启动的 ImageDataViewer，准备导入规则。'
-                $running | Stop-Process -Force
-                Start-Sleep -Seconds 2
-            }
-            $package = Join-Path $env:IPCDEPLOYMENT_FILES_DIR '下料规则.idvpack'
-            if (-not (Test-Path -LiteralPath $package)) {
-                throw "未找到规则包：$package"
-            }
-            $rule = '下料规则'
-            $arguments = '--import-package "' + $package + '" --rule "' + $rule + '"'
-            $process = Start-Process -FilePath $exe -ArgumentList $arguments -Wait -PassThru
-            if ($process.ExitCode -eq 7) {
-                Write-Output 'ImageDataViewer 仍在运行，关闭后重试。'
-                Get-Process -Name 'ImageDataViewer.App' -ErrorAction SilentlyContinue | Stop-Process -Force
-                Start-Sleep -Seconds 2
-                $process = Start-Process -FilePath $exe -ArgumentList $arguments -Wait -PassThru
-            }
-            switch ($process.ExitCode) {
-                0 { Write-Output '规则导入并激活成功。' }
-                2 { throw '规则导入失败：参数错误或规则名不存在（退出码 2）。' }
-                3 { throw '规则导入失败：规则包读取失败（退出码 3）。' }
-                4 { throw '规则导入失败：包内没有可导入的规则（退出码 4）。' }
-                5 { Write-Output '警告：规则已导入，但激活失败（根目录不可用，退出码 5）；请在软件中手工修复。' }
-                6 { throw '规则导入失败：写入失败（退出码 6）。' }
-                7 { throw '规则导入失败：ImageDataViewer 正在运行（退出码 7）。' }
-                default { throw "规则导入失败，退出码 $process.ExitCode。" }
-            }
-            $log = Join-Path $env:ProgramData ('ImageDataViewer\Logs\' + (Get-Date -Format 'yyyy-MM-dd') + '.log')
-            Write-Output ("日志：$log")
           ]]></Code>
         </Command>
       </Task>
@@ -219,12 +172,50 @@
           ]]></Code>
         </Command>
       </Task>
-      <Task key="msi-afterburner" name="MSI Afterburner 占位">
-        <Install id="msi-afterburner-install" name="安装 MSI Afterburner"
-                 file="software/MSIAfterburnerSetup466.exe"
-                 arguments="/S"
-                 timeoutMinutes="15" successExitCodes="0"
-                 skipIfFileExists="%ProgramFiles(x86)%/MSI Afterburner/MSIAfterburner.exe" />
+      <Task key="msi-afterburner" name="MSI Afterburner">
+        <Command id="msi-afterburner-install" name="解压 MSI Afterburner 并创建桌面快捷方式"
+                 language="powershell" timeoutMinutes="10" successExitCodes="0">
+          <Code><![CDATA[
+            $target = Join-Path ${env:ProgramFiles(x86)} 'MSI Afterburner'
+            $zip = Join-Path $env:IPCDEPLOYMENT_DATA_ROOT 'software\MSIAfterburner-portable.zip'
+            if (-not (Test-Path -LiteralPath $zip)) {
+                throw "未找到 MSI Afterburner 便携包：$zip"
+            }
+
+            $exe = Join-Path $target 'MSIAfterburner.exe'
+            if (Test-Path -LiteralPath $exe) {
+                Write-Output "MSI Afterburner 已存在，跳过解压：$target"
+            } else {
+                # 目标目录存在但 exe 缺失时按不完整解压处理，清空后重解。
+                if (Test-Path -LiteralPath $target) {
+                    Write-Output "清理不完整目录：$target"
+                    Remove-Item -LiteralPath $target -Recurse -Force
+                }
+                New-Item -ItemType Directory -Force -Path $target | Out-Null
+                Write-Output "解压 MSI Afterburner 到：$target"
+                Expand-Archive -LiteralPath $zip -DestinationPath $target -Force
+            }
+
+            if (-not (Test-Path -LiteralPath $exe)) {
+                throw "解压后未找到：$exe"
+            }
+
+            $desktop = [Environment]::GetFolderPath('CommonDesktopDirectory')
+            $lnk = Join-Path $desktop 'MSI Afterburner.lnk'
+            $shell = New-Object -ComObject WScript.Shell
+            $shortcut = $shell.CreateShortcut($lnk)
+            $shortcut.TargetPath = $exe
+            $shortcut.WorkingDirectory = $target
+            $shortcut.Description = '微星显卡超频工具 MSI Afterburner'
+            $shortcut.Save()
+            if (-not (Test-Path -LiteralPath $lnk)) {
+                throw "桌面快捷方式创建失败：$lnk"
+            }
+
+            Write-Output "MSI Afterburner 安装完成：$exe"
+            Write-Output "桌面快捷方式：$lnk"
+          ]]></Code>
+        </Command>
         <Command id="msi-afterburner-autostart" name="创建计划任务自启"
                  language="powershell" timeoutMinutes="5" successExitCodes="0">
           <Code><![CDATA[
@@ -252,359 +243,203 @@
           ]]></Code>
         </Command>
       </Task>
-    </Group>
-    <Group key="file-copy" name="文件复制">
-      <Task key="jino-shared" name="JinoVision 共享库">
-        <Copy id="mysql-connector-copy" name="复制 MySqlConnector.dll"
-              source="files/MySqlConnector.dll"
-              target="C:\Program Files\JinoVision\bin.x64\dotnetShared\MySqlConnector.dll"
-              overwrite="ifDifferent" backup="false" />
-      </Task>
-    </Group>
-    <Group key="database" name="数据库">
-      <Task key="mysql" name="MySQL 数据库">
-        <Command id="mysql-clean" name="强制清理现有 MySQL" language="powershell"
-                 timeoutMinutes="10" successExitCodes="0">
+      <Task key="wireshark" name="Wireshark">
+        <Command id="npcap-install" name="安装 Npcap 抓包驱动"
+                 language="powershell" timeoutMinutes="10" successExitCodes="0" warnExitCodes="201">
           <Code><![CDATA[
-            $dataDir = 'C:\MySQL'
-            $configDir = 'C:\ProgramData\MySQL'
-            $programRoot = 'C:\Program Files\MySQL'
-
-            # 强制清理：停止服务/进程，按卸载注册表卸载 MySQL Server，再删除数据与配置目录。
-            $services = Get-Service -Name 'MySQL*' -ErrorAction SilentlyContinue
-            foreach ($service in $services) {
-                Write-Output ("停止 MySQL 服务：" + $service.Name)
-                Stop-Service -Name $service.Name -Force -ErrorAction SilentlyContinue
+            $wpcap = Join-Path $env:SystemRoot 'System32\Npcap\wpcap.dll'
+            if (Test-Path -LiteralPath $wpcap) {
+                Write-Output "Npcap 已安装：$wpcap"
+                exit 0
             }
 
-            $mysqldProcess = Get-Process -Name 'mysqld' -ErrorAction SilentlyContinue
-            if ($mysqldProcess) {
-                Write-Output '结束残留 mysqld.exe 进程'
-                & "$env:SystemRoot\System32\taskkill.exe" /IM mysqld.exe /F | Out-Null
-                Start-Sleep -Seconds 2
+            $installer = Join-Path $env:IPCDEPLOYMENT_DATA_ROOT 'software\npcap-1.88.exe'
+            if (-not (Test-Path -LiteralPath $installer)) {
+                throw "未找到 Npcap 安装包：$installer"
             }
 
-            $uninstallRoots = @(
-                'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall',
-                'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall'
-            )
-            $productCodes = @()
-            foreach ($root in $uninstallRoots) {
-                if (-not (Test-Path -LiteralPath $root)) { continue }
-                foreach ($key in (Get-ChildItem -LiteralPath $root -ErrorAction SilentlyContinue)) {
-                    $item = Get-ItemProperty -Path $key.PSPath -ErrorAction SilentlyContinue
-                    if ($item -and $item.DisplayName -like 'MySQL Server*' -and $key.PSChildName -match '^\{[0-9A-Fa-f-]+\}$') {
-                        $productCodes += $key.PSChildName
-                    }
-                }
-            }
-            $productCodes = $productCodes | Select-Object -Unique
-            foreach ($code in $productCodes) {
-                Write-Output ("卸载 MySQL MSI：" + $code)
-                $process = Start-Process -FilePath "$env:SystemRoot\System32\msiexec.exe" `
-                    -ArgumentList @('/x', $code, '/qn', '/norestart') -Wait -PassThru
-                if ($process.ExitCode -ne 0 -and $process.ExitCode -ne 1605 -and $process.ExitCode -ne 3010) {
-                    throw ("卸载 MySQL 失败，退出码 " + $process.ExitCode + "：" + $code)
-                }
-            }
+            # 免费版 Npcap 不支持 /S；这里聚焦 NSIS 向导并发送回车（默认按钮 ID 1），
+            # 顺序 I Agree -> Install -> Next -> Finish；回车无效时再兜底点击按钮。
+            Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+using System.Text;
+public static class NpcapUi
+{
+    public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+    [DllImport("user32.dll")] public static extern bool EnumWindows(EnumWindowsProc callback, IntPtr lParam);
+    [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+    [DllImport("user32.dll")] public static extern IntPtr GetDlgItem(IntPtr hDlg, int itemId);
+    [DllImport("user32.dll")] public static extern bool IsWindowEnabled(IntPtr hWnd);
+    [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hWnd);
+    [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int command);
+    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+    [DllImport("user32.dll")] public static extern IntPtr SendMessage(IntPtr hWnd, uint message, IntPtr wParam, IntPtr lParam);
+    [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr hWnd, uint message, IntPtr wParam, IntPtr lParam);
+    [DllImport("user32.dll")] public static extern void keybd_event(byte key, byte scan, uint flags, UIntPtr extra);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int maxCount);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetWindowTextLength(IntPtr hWnd);
+    public const uint BmClick = 0x00F5;
+    public const uint WmCommand = 0x0111;
+    public const uint WmNextDlgCtl = 0x0028;
+    public const int SwRestore = 9;
+    public const byte VkReturn = 0x0D;
 
-            $services = Get-Service -Name 'MySQL*' -ErrorAction SilentlyContinue
-            foreach ($service in $services) {
-                Write-Output ("删除残留服务：" + $service.Name)
-                & "$env:SystemRoot\System32\sc.exe" delete $service.Name | Out-Null
-                if ($LASTEXITCODE -ne 0) {
-                    Write-Output ("服务删除返回 " + $LASTEXITCODE + "，由配置步骤继续校验：" + $service.Name)
-                }
-            }
+    public static string TextOf(IntPtr hWnd)
+    {
+        var length = GetWindowTextLength(hWnd);
+        var buffer = new StringBuilder(length + 1);
+        GetWindowText(hWnd, buffer, buffer.Capacity);
+        return buffer.ToString();
+    }
 
-            foreach ($path in @($dataDir, $configDir, $programRoot)) {
-                if ($path -eq 'C:\' -or $path -eq 'C:') {
-                    throw "拒绝删除根路径：$path"
-                }
-                if (-not (Test-Path -LiteralPath $path)) { continue }
-                Write-Output ("删除目录：" + $path)
-                for ($attempt = 1; $attempt -le 3; $attempt++) {
-                    try {
-                        Remove-Item -LiteralPath $path -Recurse -Force -ErrorAction Stop
-                        break
-                    } catch {
-                        if ($attempt -eq 3) { throw }
-                        Start-Sleep -Seconds 2
-                    }
-                }
+    public static IntPtr FindEnabledPageWindow(uint processId, out IntPtr button)
+    {
+        IntPtr page = IntPtr.Zero;
+        IntPtr pageButton = IntPtr.Zero;
+        EnumWindows(delegate(IntPtr hWnd, IntPtr lParam)
+        {
+            uint owner;
+            GetWindowThreadProcessId(hWnd, out owner);
+            if (owner != processId || !IsWindowVisible(hWnd))
+            {
+                return true;
             }
-            Write-Output 'MySQL 清理完成。'
-          ]]></Code>
-        </Command>
-        <Install id="mysql-install" name="安装 MySQL Server 8.4"
-                 file="software/mysql-8.4.7-winx64.msi"
-                 arguments="INSTALLDIR=&quot;C:\Program Files\MySQL\MySQL Server 8.4&quot;"
-                 timeoutMinutes="20" successExitCodes="0,3010" />
-        <Command id="mysql-configure" name="初始化并配置 MySQL" language="powershell"
-                 timeoutMinutes="10" successExitCodes="0">
-          <Code><![CDATA[
-            $configDir = 'C:\ProgramData\MySQL\MySQL Server 8.4'
-            $configFile = Join-Path $configDir 'my.ini'
-            $dataDir = 'C:\MySQL'
-            $serviceName = 'MySQL84'
-            $port = 3306
-            $rootPassword = 'root'
-            $database = 'inovance'
-
-            $mysqld = $null
-            foreach ($root in @('C:\Program Files\MySQL', 'C:\Program Files (x86)\MySQL')) {
-                if (-not (Test-Path -LiteralPath $root)) { continue }
-                $found = Get-ChildItem -LiteralPath $root -Filter 'mysqld.exe' -Recurse -File -ErrorAction SilentlyContinue |
-                    Select-Object -First 1
-                if ($found) { $mysqld = $found.FullName; break }
+            var candidate = GetDlgItem(hWnd, 1);
+            if (candidate == IntPtr.Zero || !IsWindowVisible(candidate) || !IsWindowEnabled(candidate))
+            {
+                return true;
             }
-            if (-not $mysqld) {
-                throw '未找到 mysqld.exe，MySQL Server 可能未安装成功。'
-            }
-            $baseDir = Split-Path -Parent (Split-Path -Parent $mysqld)
-            $mysql = Join-Path $baseDir 'bin\mysql.exe'
-            if (-not (Test-Path -LiteralPath $mysql)) {
-                throw "未找到 mysql.exe：$mysql"
-            }
-            Write-Output "MySQL 安装目录：$baseDir"
+            page = hWnd;
+            pageButton = candidate;
+            return false;
+        }, IntPtr.Zero);
+        button = pageButton;
+        return page;
+    }
 
-            New-Item -ItemType Directory -Force -Path $configDir | Out-Null
-            New-Item -ItemType Directory -Force -Path $dataDir | Out-Null
-
-            $baseDirIni = $baseDir.Replace('\', '/')
-            $ini = @"
-[mysqld]
-basedir=$baseDirIni
-datadir=C:/MySQL
-port=$port
-bind-address=0.0.0.0
-character-set-server=utf8mb4
-collation-server=utf8mb4_0900_ai_ci
-log-error=C:/MySQL/mysql-error.log
-
-[client]
-port=$port
-default-character-set=utf8mb4
+    public static void ActivateAndPressEnter(IntPtr window, IntPtr button)
+    {
+        ShowWindow(window, SwRestore);
+        SetForegroundWindow(window);
+        SendMessage(window, WmNextDlgCtl, button, (IntPtr)1);
+        keybd_event(VkReturn, 0, 0, UIntPtr.Zero);
+        keybd_event(VkReturn, 0, 2, UIntPtr.Zero);
+    }
+}
 "@
-            [IO.File]::WriteAllText($configFile, $ini, (New-Object System.Text.UTF8Encoding($false)))
 
-            $systemDir = Join-Path $dataDir 'mysql'
-            if (-not (Test-Path -LiteralPath $systemDir)) {
-                $entries = @(Get-ChildItem -LiteralPath $dataDir -Force -ErrorAction SilentlyContinue)
-                if ($entries.Count -gt 0) {
-                    Write-Output "数据目录非空，清空：$dataDir"
-                    Get-ChildItem -LiteralPath $dataDir -Force | Remove-Item -Recurse -Force
-                }
-                Write-Output '初始化 MySQL 数据目录'
-                & $mysqld "--defaults-file=$configFile" --initialize-insecure --console
-                if ($LASTEXITCODE -ne 0) {
-                    throw "MySQL 初始化失败，退出码 $LASTEXITCODE"
-                }
-            }
-
-            & "$env:SystemRoot\System32\icacls.exe" $dataDir /grant '*S-1-5-18:(OI)(CI)F' | Out-Null
-            if ($LASTEXITCODE -ne 0) {
-                throw '为 SYSTEM 授予 C:\MySQL 权限失败。'
-            }
-
-            $service = Get-CimInstance Win32_Service -Filter "Name='$serviceName'" -ErrorAction SilentlyContinue
-            if ($service) {
-                # 残留服务可能仍指向旧数据目录，必须先确认它使用的是本次 my.ini。
-                if ($service.PathName -notlike "*$configFile*") {
-                    throw "服务 $serviceName 已存在但未使用 $configFile，请先清理。"
-                }
-            } else {
-                Write-Output "注册 MySQL 服务：$serviceName"
-                & $mysqld --install $serviceName "--defaults-file=$configFile"
-                if ($LASTEXITCODE -ne 0) {
-                    throw "MySQL 服务注册失败，退出码 $LASTEXITCODE"
-                }
-                Start-Sleep -Seconds 2
-            }
-            Set-Service -Name $serviceName -StartupType Automatic
-            $service = Get-Service -Name $serviceName
-            if ($service.Status -ne 'Running') {
-                Start-Service -Name $serviceName
-            }
-
-            $deadline = (Get-Date).AddSeconds(60)
-            $ready = $false
-            while ((Get-Date) -lt $deadline) {
-                $client = New-Object System.Net.Sockets.TcpClient
-                try {
-                    $client.Connect('127.0.0.1', $port)
-                    $ready = $true
-                    break
-                } catch {
-                    Start-Sleep -Milliseconds 500
-                } finally {
-                    $client.Dispose()
-                }
-            }
-            if (-not $ready) {
-                throw "MySQL 端口 $port 在 60 秒内未就绪。"
-            }
-
-            $mysqlArgs = @('--protocol=TCP', '-h', '127.0.0.1', '-P', "$port", '-u', 'root')
-            $emptyPassword = $false
+            $process = Start-Process -FilePath $installer -PassThru
+            $deadline = (Get-Date).AddMinutes(5)
+            $lastPage = ''
+            $clicks = 0
+            $lastAction = Get-Date
             try {
-                & $mysql @mysqlArgs --skip-password -e 'SELECT 1;' | Out-Null
-                if ($LASTEXITCODE -eq 0) { $emptyPassword = $true }
-            } catch { }
-
-            if ($emptyPassword) {
-                & $mysql @mysqlArgs --skip-password -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '$rootPassword';"
-                if ($LASTEXITCODE -ne 0) {
-                    throw '设置 root@localhost 密码失败。'
-                }
-            }
-
-            $env:MYSQL_PWD = $rootPassword
-            try {
-                # 局域网访问：root@'%' + bind-address=0.0.0.0 + 防火墙 3306。
-                $sql = "CREATE DATABASE IF NOT EXISTS ``$database`` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci; " +
-                       "CREATE USER IF NOT EXISTS 'root'@'%' IDENTIFIED BY '$rootPassword'; " +
-                       "ALTER USER 'root'@'%' IDENTIFIED BY '$rootPassword'; " +
-                       "GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION; " +
-                       "FLUSH PRIVILEGES;"
-                & $mysql @mysqlArgs -e $sql
-                if ($LASTEXITCODE -ne 0) {
-                    throw '创建 inovance 库或 root@% 失败。'
-                }
-
-                $dbCheck = & $mysql @mysqlArgs -N -e "SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME='$database';"
-                if ($LASTEXITCODE -ne 0 -or $dbCheck -notcontains $database) {
-                    throw "数据库 $database 回读失败。"
-                }
-
-                $hostCheck = & $mysql @mysqlArgs -N -e "SELECT host FROM mysql.user WHERE user='root' AND host='%';"
-                if ($LASTEXITCODE -ne 0 -or $hostCheck -notcontains '%') {
-                    throw "root@'%' 回读失败。"
-                }
-
-                & $mysql @mysqlArgs -N -e "SHOW GRANTS FOR 'root'@'%';"
-                if ($LASTEXITCODE -ne 0) {
-                    throw "SHOW GRANTS 回读失败。"
+                while (-not $process.HasExited -and (Get-Date) -lt $deadline) {
+                    $button = [IntPtr]::Zero
+                    $window = [NpcapUi]::FindEnabledPageWindow([uint32]$process.Id, [ref]$button)
+                    if ($window -ne [IntPtr]::Zero) {
+                        $title = [NpcapUi]::TextOf($window)
+                        $text = [NpcapUi]::TextOf($button)
+                        $key = $title + '|' + $text
+                        if ($key -ne $lastPage) {
+                            Write-Output ('Npcap 窗口：' + $title + '；默认按钮：' + $text)
+                            $lastPage = $key
+                            $lastAction = (Get-Date).AddSeconds(-5)
+                        }
+                        if (((Get-Date) - $lastAction).TotalMilliseconds -ge 1200) {
+                            [NpcapUi]::ActivateAndPressEnter($window, $button)
+                            $clicks++
+                            Start-Sleep -Milliseconds 600
+                            if (-not $process.HasExited) {
+                                # 回车没推进时兜底点击默认按钮，再失败则直接发 IDOK。
+                                $stillButton = [IntPtr]::Zero
+                                $still = [NpcapUi]::FindEnabledPageWindow([uint32]$process.Id, [ref]$stillButton)
+                                if ($still -ne [IntPtr]::Zero -and [NpcapUi]::TextOf($stillButton) -eq $text) {
+                                    [void][NpcapUi]::SendMessage($stillButton, [NpcapUi]::BmClick, [IntPtr]::Zero, [IntPtr]::Zero)
+                                    Start-Sleep -Milliseconds 400
+                                }
+                            }
+                            $lastAction = Get-Date
+                        }
+                    }
+                    Start-Sleep -Milliseconds 300
                 }
             } finally {
-                Remove-Item Env:\MYSQL_PWD -ErrorAction SilentlyContinue
+                if (-not $process.HasExited) {
+                    Write-Output 'Npcap 自动安装超时，结束安装器进程。'
+                    try { $process.Kill() } catch { }
+                    Start-Sleep -Seconds 1
+                }
             }
 
-            $serviceInfo = Get-CimInstance Win32_Service -Filter "Name='$serviceName'" -ErrorAction Stop
-            if (-not $serviceInfo -or $serviceInfo.State -ne 'Running') {
-                throw "MySQL 服务 $serviceName 未运行。"
+            if (Test-Path -LiteralPath $wpcap) {
+                Write-Output "Npcap 安装完成：$wpcap（点击 $clicks 次）"
+                exit 0
             }
-            Write-Output ("MySQL 服务：$($serviceInfo.Name)，状态：$($serviceInfo.State)，账户：$($serviceInfo.StartName)")
 
-            $ruleName = 'MySQL 3306 (IPCDeployment)'
-            $rule = Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue
-            if (-not $rule) {
-                New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Protocol TCP -LocalPort $port -Action Allow -Profile Any | Out-Null
-            } else {
-                Enable-NetFirewallRule -DisplayName $ruleName
-            }
-            $rule = Get-NetFirewallRule -DisplayName $ruleName -ErrorAction Stop
-            if (-not $rule -or $rule.Enabled.ToString() -ne 'True') {
-                throw 'MySQL 防火墙规则未启用。'
-            }
-            Write-Output "MySQL 配置完成：$database，端口 $port，数据目录 $dataDir。"
+            Write-Output '警告：Npcap 未能自动安装（可能被额外对话框拦截或安装被取消）。'
+            Write-Output ('操作：手动运行 ' + $installer + '，按 I Agree → Install → Next → Finish 完成，然后重新运行本软件。')
+            exit 201
           ]]></Code>
         </Command>
-        <Command id="mysql-verify" name="验证局域网访问" language="powershell"
-                 timeoutMinutes="10" successExitCodes="0">
-          <Code><![CDATA[
-            $mysql = $null
-            foreach ($root in @('C:\Program Files\MySQL', 'C:\Program Files (x86)\MySQL')) {
-                if (-not (Test-Path -LiteralPath $root)) { continue }
-                $found = Get-ChildItem -LiteralPath $root -Filter 'mysql.exe' -Recurse -File -ErrorAction SilentlyContinue |
-                    Select-Object -First 1
-                if ($found) { $mysql = $found.FullName; break }
-            }
-            if (-not $mysql) {
-                throw '未找到 mysql.exe，无法验证 MySQL。'
-            }
-
-            $configuration = Get-NetIPConfiguration -ErrorAction SilentlyContinue |
-                Where-Object { $_.IPv4Address -and $_.IPv4DefaultGateway } |
-                Select-Object -First 1
-            $ip = $null
-            if ($configuration) {
-                $ip = @($configuration.IPv4Address)[0].IPAddress
-            }
-            if (-not $ip) {
-                $ip = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
-                    Where-Object { $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169.254.*' } |
-                    Select-Object -First 1 -ExpandProperty IPAddress
-            }
-            if (-not $ip) {
-                throw '未找到局域网 IPv4 地址，无法验证 root@% 连接。'
-            }
-
-            $env:MYSQL_PWD = 'root'
-            try {
-                $version = & $mysql --protocol=TCP -h $ip -P 3306 -u root -N -e 'SELECT VERSION();'
-                if ($LASTEXITCODE -ne 0) {
-                    throw "通过 $ip 连接 MySQL 失败。"
-                }
-                $db = & $mysql --protocol=TCP -h $ip -P 3306 -u root -N -e "SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME='inovance';"
-                if ($LASTEXITCODE -ne 0 -or $db -notcontains 'inovance') {
-                    throw "通过 $ip 未查到 inovance 库。"
-                }
-                $hosts = & $mysql --protocol=TCP -h $ip -P 3306 -u root -N -e "SELECT host FROM mysql.user WHERE user='root';"
-                if ($LASTEXITCODE -ne 0 -or $hosts -notcontains '%') {
-                    throw 'root@% 未生效。'
-                }
-                Write-Output ("MySQL 局域网验证通过：$ip，版本 " + ($version -join ' '))
-                Write-Output ("root host：" + ($hosts -join ', '))
-            } finally {
-                Remove-Item Env:\MYSQL_PWD -ErrorAction SilentlyContinue
-            }
-          ]]></Code>
-        </Command>
+        <Install id="wireshark-install" name="安装 Wireshark"
+                 file="software/Wireshark-4.6.9-x64.exe"
+                 arguments="/S"
+                 timeoutMinutes="15" successExitCodes="0,3010"
+                 skipIfFileExists="%ProgramFiles%/Wireshark/Wireshark.exe" />
       </Task>
-      <Task key="heidi-sql" name="HeidiSQL">
-        <Command id="heidi-sql-install" name="解压 HeidiSQL 并创建桌面快捷方式"
+      <Task key="process-explorer" name="Process Explorer">
+        <Command id="process-explorer-install" name="解压 Process Explorer 并创建桌面快捷方式"
                  language="powershell" timeoutMinutes="10" successExitCodes="0">
           <Code><![CDATA[
-            $target = Join-Path $env:LOCALAPPDATA 'Programs\HeidiSQL'
-            $zip = Join-Path $env:IPCDEPLOYMENT_DATA_ROOT 'software\HeidiSQL.zip'
+            $target = 'C:\Program Files\ProcessExplorer'
+            $zip = Join-Path $env:IPCDEPLOYMENT_DATA_ROOT 'software\ProcessExplorer.zip'
             if (-not (Test-Path -LiteralPath $zip)) {
-                throw "未找到 HeidiSQL 安装包：$zip"
+                throw "未找到 Process Explorer 安装包：$zip"
             }
 
-            $exe = Join-Path $target 'heidisql.exe'
-            if (-not (Test-Path -LiteralPath $exe)) {
+            $exe = Join-Path $target 'procexp64.exe'
+            if (Test-Path -LiteralPath $exe) {
+                Write-Output "Process Explorer 已安装，跳过解压：$target"
+            } else {
+                # 目标目录存在但 exe 缺失时按不完整解压处理，清空后重解。
                 if (Test-Path -LiteralPath $target) {
                     Write-Output "清理不完整目录：$target"
                     Remove-Item -LiteralPath $target -Recurse -Force
                 }
                 New-Item -ItemType Directory -Force -Path $target | Out-Null
-                Write-Output "解压 HeidiSQL 到：$target"
+                Write-Output "解压 Process Explorer 到：$target"
                 Expand-Archive -LiteralPath $zip -DestinationPath $target -Force
-            } else {
-                Write-Output "HeidiSQL 已存在，跳过解压：$target"
             }
 
             if (-not (Test-Path -LiteralPath $exe)) {
                 throw "解压后未找到：$exe"
             }
 
-            $desktop = [Environment]::GetFolderPath('Desktop')
-            $lnk = Join-Path $desktop 'HeidiSQL.lnk'
+            $desktop = [Environment]::GetFolderPath('CommonDesktopDirectory')
+            $lnk = Join-Path $desktop 'Process Explorer.lnk'
             $shell = New-Object -ComObject WScript.Shell
             $shortcut = $shell.CreateShortcut($lnk)
             $shortcut.TargetPath = $exe
             $shortcut.WorkingDirectory = $target
-            $shortcut.Description = 'HeidiSQL'
+            $shortcut.Description = '进程浏览器 Process Explorer'
             $shortcut.Save()
             if (-not (Test-Path -LiteralPath $lnk)) {
                 throw "桌面快捷方式创建失败：$lnk"
             }
 
-            Write-Output "HeidiSQL 安装完成：$exe"
+            Write-Output "Process Explorer 安装完成：$exe"
             Write-Output "桌面快捷方式：$lnk"
           ]]></Code>
         </Command>
+      </Task>
+      <Task key="everything" name="Everything">
+        <Install id="everything-install" name="安装 Everything"
+                 file="software/Everything-1.4.1.1032.x86-Setup.exe"
+                 arguments="/S"
+                 timeoutMinutes="15" successExitCodes="0,3010"
+                 skipIfFileExists="%ProgramFiles(x86)%/Everything/Everything.exe" />
       </Task>
     </Group>
     <Group key="system" name="系统优化">
@@ -694,7 +529,7 @@ default-character-set=utf8mb4
       </Task>
       <Task key="disable-defender" name="关闭 Windows Defender">
         <Command id="disable-defender-apply" name="关闭 Defender 实时保护" language="powershell"
-                 timeoutMinutes="10" successExitCodes="0">
+                 timeoutMinutes="10" successExitCodes="0" warnExitCodes="201">
           <Code><![CDATA[
             $lgpo = Join-Path $env:IPCDEPLOYMENT_COMMANDS_DIR 'LGPO.exe'
             if (-not (Test-Path -LiteralPath $lgpo)) {
@@ -804,6 +639,11 @@ DWORD:1
                 "，篡改保护=" + $status.IsTamperProtected)
 
             if ($status.RealTimeProtectionEnabled -ne $false) {
+                if ($status.IsTamperProtected) {
+                    Write-Output '警告：篡改保护已开启，Defender 实时保护无法关闭。'
+                    Write-Output '操作：打开 Windows 安全中心 → 病毒和威胁防护 → 管理设置，关闭“篡改保护”，然后重新运行本软件。'
+                    exit 201
+                }
                 throw ("Defender 实时保护未确认关闭（实时保护=" + $status.RealTimeProtectionEnabled +
                     "，篡改保护=" + $status.IsTamperProtected +
                     "，运行模式=" + $status.AMRunningMode + "）。请先关闭篡改保护后重试。")

@@ -4,9 +4,9 @@
 
 - IPCDeployment (工控机部署工具) is a portable Windows deployment tool: a net472 WPF-UI desktop app that reads an XML config and executes install, copy, registry, command, service, network, power, autostart, and delay steps grouped into groups and tasks.
 - Solution: `IPCDeployment.sln` at the repo root (not under `src/`). It has two projects: `src/IPCDeployment` (WPF-UI 4.3.0 app; `Core/` holds the WPF-free logic) and `tests/IPCDeployment.Tests` (NUnit). Example commands ship as `.cmd`/`.ps1` in `data/commands`.
-- Packaging is the app plus `scripts/package-portable.ps1` producing a ZIP. There is no Inno Setup script or self-installer/uninstall entry for the tool itself; do not add one.
+- Packaging is the app plus `scripts/package-portable.ps1` producing the standard ZIP and the lithium config ZIP. There is no Inno Setup script or self-installer/uninstall entry for the tool itself; do not add one.
 - The app requests administrator privileges. `config/config.xml` ships as `mode="execute"` with the deployment steps and `config/config.sample.xml` stays `mode="preview"`; execute requires `mode="execute"`, preflight, the task/step summary, and a second confirmation in the UI.
-- `config/` holds selectable configurations as direct child `*.xml` files; startup loads `config/config.xml`, falling back to the first non-sample XML, and the UI switches configs with a drop-down. `config/config.sample.xml` is reference only: it is never listed or loaded automatically. `data/` holds software, files, and commands; `logs/` is runtime output. Config structure is Groups → Group → Task → Step, and group names must be unique.
+- `config/` holds selectable configurations as direct child `*.xml` files; startup loads `config/config.xml`, falling back to the first non-sample XML, and the UI switches configs with a drop-down. `config/config.sample.xml` is reference only: it is never listed or loaded automatically. `data/` holds software, files, and commands; `logs/` is runtime output. Config structure is Groups → Group → Task → Step, and group names must be unique. The three lithium line configs (模切/下料/卷绕) live in `config-lithium/` and ship in a separate `IPCDeployment-<version>-lithium-config.zip`; the standard package only carries `config/config.xml`.
 
 ## Commands
 
@@ -20,7 +20,7 @@
 - `dotnet test` builds the app project as a dependency; run the build before packaging. Tests use temp directories and do not touch `data/`.
 - Tests are Windows net472 and use fake process runners plus temp dirs: no admin rights or real system changes needed.
 - Do not launch the app or run deployment operations during verification; build, test, package, and inspect files only. Real changes happen manually on a representative machine.
-- `dist/IPCDeployment` and `dist/IPCDeployment.zip` hold the package; the script copies the `src/IPCDeployment/bin/<Configuration>/net472` output, the root `config/` directory, `data/`, and the root `使用说明.md` / `XML配置说明.md`. `dist/` is gitignored. `scripts/build-debug.ps1` copies the same set to `build/debug` without a ZIP.
+- `dist/IPCDeployment-<version>-win-x64` and `dist/IPCDeployment-<version>-win-x64.zip` hold the standard package; the script copies the `src/IPCDeployment/bin/<Configuration>/net472` output, the root `config/` directory, `data/`, and the root `使用说明.md` / `XML配置说明.md`, then builds `dist/IPCDeployment-<version>-lithium-config.zip` from the three `config-lithium/` XMLs (ZIP root `config/`, copied into the package's `config/` on site). The version comes from the app csproj `<Version>` and the script requires the current commit to carry the same tag. `dist/` is gitignored. `scripts/build-debug.ps1` copies the standard set to `build/debug` without a ZIP.
 
 ## Architecture and safety
 
@@ -29,6 +29,8 @@
 - Source paths are data-relative and must include the area prefix (`software/`, `files/`, `commands/`); reject absolute paths, `..`, and escapes. Commands are `.exe`, `.cmd`, `.bat`, or `.ps1` under `data/commands`, or explicit inline `<Code>` with `language="cmd|powershell"`. Use only the fixed Windows `cmd.exe`/`powershell.exe`; no arbitrary interpreter paths or downloads. Inline scripts use temporary files under `%TEMP%` and are deleted after execution.
 - Write operations must read the current value, report already satisfied when equal, and read back after writing. Install may verify SHA-256. Timeouts must kill the process tree. Logs must be capped and redact secrets.
 - Any step failure ends its task, marks the remaining steps not executed, and starts the next task; later groups are unaffected. There is no skipped state for failure, no global failure state, and no automatic rollback. Report restart-required results truthfully.
+- A task may declare `enabled="false"`; it is shown as 已禁用, is not executed, publishes no task events, produces no step results, is excluded from progress, and is skipped by runtime preflight checks while still passing structural validation.
+- `Command` may declare `warnExitCodes`; a matching exit code marks the step as 警告 instead of failure, later steps continue, and a task with warnings ends as 警告 (counted as ended, not successful). Warning details appear in the log as a colored WARN line.
 - Network advanced properties must be located by `NetCfgInstanceId`, never a hardcoded driver index. `SpeedDuplex` must be ordered before other advanced properties on the same adapter.
 - The config loader prohibits DTD/external resolution and rejects unknown elements and attributes with line/column errors. PowerShell file and inline steps use `-ExecutionPolicy Bypass`; inline PowerShell defaults to `$ErrorActionPreference='Stop'` with `strict="false"` as opt-out.
 - Command steps display `EXE`, `CMD`, or `PowerShell`; do not add separate inline/file labels.

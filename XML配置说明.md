@@ -7,6 +7,7 @@
 - 配置文件放在程序目录 `config/` 下，必须是该目录的直接子文件，扩展名 `.xml`。
 - 程序启动时优先加载 `config/config.xml`；不存在时加载按文件名排序的第一个非示例 XML。
 - `config/config.sample.xml` 只是示例，不会出现在下拉中，也不会自动加载。
+- 锂电工位配置（模切/下料/卷绕）在仓库的 `config-lithium/`，随锂电配置包单独发布；把 XML 复制进程序目录 `config/` 后才能在下拉中选择。
 - 配置文件编码建议 UTF-8；XML 中不要使用 DTD 或外部实体。
 - 一个配置就是一个完整的部署流程，不能 include 其他 XML。
 
@@ -36,11 +37,13 @@
 | `Deployment` | 是 | 根元素，不能带命名空间 |
 | `schemaVersion` | 是 | 必须为 `2.0` |
 | `mode` | 否 | `preview`（默认）或 `execute` |
-| `Meta` | 否 | `name`、`description` 两个说明属性 |
+| `Meta` | 否 | `name`、`description` 两个说明属性；`name` 同时用作“配置方案”下拉的显示名 |
 | `Options/LogDirectory` | 否 | 程序目录内的相对路径，默认 `logs` |
 | `Groups` | 是 | 至少一个 `Group` |
 
 `preview` 只校验和展示，不创建进程、不修改系统；`execute` 才会真实执行，并且需要预检通过、任务摘要和界面二次确认。
+
+“配置方案”下拉显示为 `Meta name（文件名）`，例如 `标准配置（config.xml）`；`Meta name` 缺失、为空或 XML 无法解析时只显示文件名。显示名不影响加载、排序和选择，选择仍以文件名为准。
 
 ## 4. 分组、任务、步骤
 
@@ -57,6 +60,7 @@
 
 - `Group`：`key`、`name` 必填；`name` 去空格后忽略大小写必须唯一。
 - `Task`：`key`、`name` 必填；`key` 在整个配置内唯一。
+- `Task` 可选 `enabled`（默认 `true`）：写 `enabled="false"` 表示禁用该任务。禁用任务在界面显示“已禁用”，不执行、不发布任务事件、不产生步骤结果、不计入进度，也跳过运行期预检；任务本身仍要满足 `key`/`name` 至少一个步骤的校验。
 - 每个 `Group` 至少一个 `Task`，每个 `Task` 至少一个步骤。
 - 步骤按 XML 文档顺序执行。
 - 步骤元素只允许：`Install`、`Copy`、`Registry`、`Command`、`Service`、`Network`、`Power`、`AutoStart`、`Delay`。
@@ -154,6 +158,7 @@ MSI 属性参数需要转义引号：
 | `workingDirectory` | 否 | `data/commands/` 下的相对目录 |
 | `timeoutMinutes` | 否 | 1–60，默认 10 |
 | `successExitCodes` | 否 | 逗号分隔，默认 `0` |
+| `warnExitCodes` | 否 | 逗号分隔；退出码命中时步骤标记“警告”，不结束任务；不能与 `successExitCodes` 重复 |
 | `strict` | 否 | 内嵌 PowerShell 默认 `true`；`false` 关闭 `$ErrorActionPreference='Stop'` 和 try/catch |
 
 - 内嵌代码写在 `<Code><![CDATA[ ... ]]></Code>` 中，代码里不能出现 `]]>`。
@@ -161,6 +166,7 @@ MSI 属性参数需要转义引号：
 - 内嵌 CMD 默认加 `@echo off`、`setlocal EnableExtensions`、`exit /b %errorlevel%`。
 - 脚本可以使用环境变量：`IPCDEPLOYMENT_APP_ROOT`、`IPCDEPLOYMENT_DATA_ROOT`、`IPCDEPLOYMENT_COMMANDS_DIR`、`IPCDEPLOYMENT_FILES_DIR`、`IPCDEPLOYMENT_CONFIG_PATH`。
 - Command 每次都会执行，没有自动幂等。
+- 需要“执行了但需人工处理”的场景用 `warnExitCodes`，脚本以约定退出码结束（如 `exit 201`）；任务会显示“警告”，继续执行后续步骤。
 
 ```xml
 <Command id="inline-ps" name="检查环境" language="powershell"
@@ -312,14 +318,15 @@ MSI 属性参数需要转义引号：
 1. 文件放在 `config/` 直属目录，扩展名 `.xml`；编码 UTF-8。
 2. 根元素 `Deployment`，`schemaVersion="2.0"`，`mode` 只能是 `preview` 或 `execute`。
 3. 每个 `Group` 的 `key`/`name` 必填，`name` 唯一；每个 `Task` 的 `key`/`name` 必填，`key` 全局唯一；每个步骤 `id` 全局唯一。
-4. 每个 `Group` 至少一个 `Task`，每个 `Task` 至少一个步骤。
+4. 每个 `Group` 至少一个 `Task`，每个 `Task` 至少一个步骤；暂不执行的任务写 `enabled="false"`，不要删掉或注释掉整段。
 5. 源路径必须是 `software/`、`files/`、`commands/` 下的相对路径，且文件真实存在。
 6. 目标路径必须是绝对路径或环境变量展开后的绝对路径；不要写盘符根。
 7. 不要发明属性或元素；未知属性会被加载器拒绝。
 8. 内嵌代码必须放在 `CDATA` 中，不能包含 `]]>`；内嵌 PowerShell/CMD 必须写 `language`。
 9. `Command` 的 `file` 和 `Code` 只能二选一；内嵌模式不能写 `arguments`。
-10. MSI 属性参数在 XML 中用 `&quot;` 转义引号。
-11. 安装步骤建议写 `skipIfFileExists`；写注册表/网络/服务/电源/自启建议依赖内置回读。
-12. 破坏性步骤（删除数据、卸载、关闭安全软件）单独放在任务里，并在 `Meta`/任务名中写清楚。
-13. 先用 `mode="preview"` 校验，确认预检和任务摘要后再改 `execute`。
-14. 真实执行前在代表性目标机上确认；不要在本机直接跑生产配置。
+10. 需要“非失败但需人工处理”的步骤用 `warnExitCodes`，并在脚本输出中写清处理步骤。
+11. MSI 属性参数在 XML 中用 `&quot;` 转义引号。
+12. 安装步骤建议写 `skipIfFileExists`；写注册表/网络/服务/电源/自启建议依赖内置回读。
+13. 破坏性步骤（删除数据、卸载、关闭安全软件）单独放在任务里，并在 `Meta`/任务名中写清楚。
+14. 先用 `mode="preview"` 校验，确认预检和任务摘要后再改 `execute`。
+15. 真实执行前在代表性目标机上确认；不要在本机直接跑生产配置。

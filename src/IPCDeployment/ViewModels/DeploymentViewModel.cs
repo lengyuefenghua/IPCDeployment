@@ -69,7 +69,7 @@ namespace IPCDeployment.ViewModels
             configPath = defaultConfigPath;
             logLines = new List<string>();
             taskLogLines = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
-            ConfigFiles = new ObservableCollection<string>();
+            ConfigFiles = new ObservableCollection<ConfigFileItem>();
             Groups = new ObservableCollection<GroupViewModel>();
             NavigationItems = new ObservableCollection<NavigationItemViewModel>();
             CompletionTasks = new ObservableCollection<TaskViewModel>();
@@ -98,7 +98,7 @@ namespace IPCDeployment.ViewModels
         }
 
         public ObservableCollection<GroupViewModel> Groups { get; private set; }
-        public ObservableCollection<string> ConfigFiles { get; private set; }
+        public ObservableCollection<ConfigFileItem> ConfigFiles { get; private set; }
         public ObservableCollection<NavigationItemViewModel> NavigationItems { get; private set; }
         public ObservableCollection<TaskViewModel> CompletionTasks { get; private set; }
         public ObservableCollection<string> PageLogLines { get; private set; }
@@ -291,7 +291,11 @@ namespace IPCDeployment.ViewModels
                 {
                     return "○";
                 }
-                return CurrentReport.FailedTaskCount > 0 || CurrentReport.Cancelled ? "×" : "✓";
+                if (CurrentReport.FailedTaskCount > 0 || CurrentReport.Cancelled)
+                {
+                    return "×";
+                }
+                return CurrentReport.WarningTaskCount > 0 ? "!" : "✓";
             }
         }
 
@@ -303,7 +307,11 @@ namespace IPCDeployment.ViewModels
                 {
                     return Brushes.Gray;
                 }
-                return CurrentReport.FailedTaskCount > 0 || CurrentReport.Cancelled ? Brushes.Firebrick : Brushes.SeaGreen;
+                if (CurrentReport.FailedTaskCount > 0 || CurrentReport.Cancelled)
+                {
+                    return Brushes.Firebrick;
+                }
+                return CurrentReport.WarningTaskCount > 0 ? Brushes.DarkOrange : Brushes.SeaGreen;
             }
         }
         public string LogPath { get { return logPath; } private set { SetProperty(ref logPath, value); } }
@@ -398,9 +406,10 @@ namespace IPCDeployment.ViewModels
         {
             var current = selectedConfigFile;
             refreshingConfigFiles = true;
+            var changed = false;
             try
             {
-                ConfigFiles.Clear();
+                var desired = new List<ConfigFileItem>();
                 if (Directory.Exists(configDirectory))
                 {
                     foreach (var file in Directory.GetFiles(configDirectory, "*.xml")
@@ -411,15 +420,18 @@ namespace IPCDeployment.ViewModels
                         {
                             continue;
                         }
-                        ConfigFiles.Add(name);
+                        desired.Add(ConfigFileItem.Create(file));
                     }
                 }
+                // 增量同步：列表没变时不碰集合，避免展开下拉时选中项被清空。
+                changed = ConfigFileItem.Sync(ConfigFiles, desired);
             }
             finally
             {
                 refreshingConfigFiles = false;
             }
-            if (current != null && ConfigFiles.Contains(current))
+            if (changed && current != null &&
+                ConfigFiles.Any(item => string.Equals(item.FileName, current, StringComparison.OrdinalIgnoreCase)))
             {
                 RestoreSelectedConfig(current);
             }
@@ -433,8 +445,8 @@ namespace IPCDeployment.ViewModels
                 ShowNoConfigState();
                 return;
             }
-            var name = ConfigFiles.FirstOrDefault(file => string.Equals(file, "config.xml", StringComparison.OrdinalIgnoreCase))
-                ?? ConfigFiles[0];
+            var name = ConfigFiles.FirstOrDefault(item => string.Equals(item.FileName, "config.xml", StringComparison.OrdinalIgnoreCase))?.FileName
+                ?? ConfigFiles[0].FileName;
             RestoreSelectedConfig(name);
             await SelectConfigAsync(Path.Combine(configDirectory, name));
         }
@@ -650,9 +662,14 @@ namespace IPCDeployment.ViewModels
 
         public string BuildConfirmationText()
         {
+            var enabledTasks = AllTasks.Where(task => !task.IsDisabled).ToList();
+            var disabledCount = AllTasks.Count - enabledTasks.Count;
+            var disabledText = disabledCount > 0
+                ? "（另 " + disabledCount + " 个任务已禁用，不执行）"
+                : string.Empty;
             return "即将使用 " + (string.IsNullOrEmpty(selectedConfigFile) ? "当前配置" : selectedConfigFile) +
-                " 执行 " + Groups.Count + " 个分组、" + AllTasks.Count + " 个任务、" +
-                AllTasks.Sum(t => t.TotalSteps) + " 个步骤。" + Environment.NewLine + Environment.NewLine +
+                " 执行 " + Groups.Count + " 个分组、" + enabledTasks.Count + " 个任务" + disabledText + "、" +
+                enabledTasks.Sum(task => task.TotalSteps) + " 个步骤。" + Environment.NewLine + Environment.NewLine +
                 "任一任务步骤失败会结束该任务，并继续下一个任务。" + Environment.NewLine +
                 "本程序将以管理员权限修改本机，且不提供自动回滚。" + Environment.NewLine + Environment.NewLine +
                 "确认执行？";
@@ -704,7 +721,7 @@ namespace IPCDeployment.ViewModels
                 ShowGroup = false;
                 ShowReport = true;
             }
-            CanStart = loadResult != null && loadResult.CanExecute;
+            CanStart = loadResult != null && loadResult.CanExecute && AllTasks.Any(task => !task.IsDisabled);
             CanOpenLog = !string.IsNullOrEmpty(LogPath) && File.Exists(LogPath);
             var logState = shell.HasLogWriteFailure
                 ? "日志写入失败，当前会话日志保留在内存。"
@@ -746,7 +763,9 @@ namespace IPCDeployment.ViewModels
             GroupCountText = Groups.Count + " 个分组";
             TaskCountText = AllTasks.Count + " 个任务";
             StepCountText = (config == null ? 0 : config.Operations.Count) + " 个步骤";
-            SummaryText = "共 " + Groups.Count + " 个分组 · " + AllTasks.Count + " 个任务 · " +
+            var disabledTaskCount = config == null ? 0 : config.Summary.DisabledTaskCount;
+            SummaryText = "共 " + Groups.Count + " 个分组 · " + AllTasks.Count + " 个任务" +
+                (disabledTaskCount > 0 ? "（" + disabledTaskCount + " 个已禁用）" : string.Empty) + " · " +
                 (config == null ? 0 : config.Operations.Count) + " 个步骤";
             ModeDetail = config == null
                 ? "配置未加载；请选择并校验 XML 配置。"
@@ -756,8 +775,8 @@ namespace IPCDeployment.ViewModels
 
             ValidationText = BuildValidationText(result);
             HasValidationIssues = result.Errors.Count > 0 || result.Warnings.Count > 0;
-            CanStart = result.CanExecute;
-            ProgressText = "0/" + AllTasks.Count + " 任务";
+            CanStart = result.CanExecute && AllTasks.Any(task => !task.IsDisabled);
+            ProgressText = "0/" + AllTasks.Count(task => !task.IsDisabled) + " 任务";
             CurrentStepText = "等待开始";
             SelectedTaskLogText = "请选择任务。";
             ReportSummary = "尚未执行";
@@ -793,6 +812,11 @@ namespace IPCDeployment.ViewModels
             {
                 lines.Add("提示：当前为 preview 模式，不会执行任何步骤。");
             }
+            if (result.Config != null && result.Config.Tasks.Count > 0 &&
+                result.Config.Tasks.All(task => !task.Enabled))
+            {
+                lines.Add("提示：所有任务均已禁用，无法开始部署。");
+            }
             if (lines.Count == 0)
             {
                 lines.Add("配置校验通过。");
@@ -815,7 +839,7 @@ namespace IPCDeployment.ViewModels
                 pair.Value.Clear();
             }
 
-            ProgressText = "0/" + AllTasks.Count + " 任务";
+            ProgressText = "0/" + AllTasks.Count(task => !task.IsDisabled) + " 任务";
             CurrentStepText = "准备开始...";
             SelectedTaskLogText = "该任务尚未运行。";
             ReportSummary = "执行中";
@@ -956,9 +980,11 @@ namespace IPCDeployment.ViewModels
             CurrentReport = report;
             CanShowReport = true;
             CanOpenLog = !string.IsNullOrEmpty(report.LogPath) && File.Exists(report.LogPath);
-            ProgressText = report.CompletedTaskCount + "/" + report.TotalTaskCount + " 任务";
+            ProgressText = report.CompletedTaskCount + "/" + report.EnabledTaskCount + " 任务";
 
-            ReportSummary = report.Cancelled ? "执行已取消" : "执行结束";
+            ReportSummary = report.Cancelled
+                ? "执行已取消"
+                : report.WarningTaskCount > 0 ? "执行结束（有警告）" : "执行结束";
 
             LogPath = report.LogPath ?? string.Empty;
             CurrentStepText = "执行结束";

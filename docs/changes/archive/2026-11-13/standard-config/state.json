@@ -1,0 +1,13 @@
+{
+  "level": "patch",
+  "phase": "finishing",
+  "grilled": false,
+  "designConfirmed": false,
+  "planReviewed": false,
+  "reviewed": false,
+  "archived": true,
+  "confirmWaived": false,
+  "reviewSessionID": null,
+  "reviewFallback": false,
+  "followUps": []
+}

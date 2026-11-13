@@ -45,6 +45,11 @@ namespace IPCDeployment.Core
                 }
                 if (!ExecutorUtility.IsSuccess(result.ExitCode, command.SuccessExitCodes))
                 {
+                    if (command.WarnExitCodes != null && Array.IndexOf(command.WarnExitCodes, result.ExitCode) >= 0)
+                    {
+                        return OperationResult.Warning(command.Id,
+                            "命令结束但需要处理：" + ExecutorUtility.SummarizeProcess(result));
+                    }
                     return OperationResult.Failed(command.Id, ExecutorUtility.SummarizeProcess(result));
                 }
 

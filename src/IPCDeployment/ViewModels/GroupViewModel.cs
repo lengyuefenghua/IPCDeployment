@@ -12,9 +12,11 @@ namespace IPCDeployment.ViewModels
         private static readonly Brush CompletedBrush = CreateBrush("#15803D");
         private static readonly Brush FailedBrush = CreateBrush("#DC2626");
         private static readonly Brush NotExecutedBrush = CreateBrush("#6B7280");
+        private static readonly Brush WarningBrush = CreateBrush("#B45309");
 
         private int completed;
         private int failed;
+        private int warnings;
         private int notExecuted;
         private bool isCurrent;
         private string statusText = "等待";
@@ -37,14 +39,25 @@ namespace IPCDeployment.ViewModels
             get { return Tasks.Count; }
         }
 
+        /// <summary>进入执行队列的任务数；进度分母只算这些任务。</summary>
+        public int EnabledTaskCount
+        {
+            get { return Tasks.Count(task => !task.IsDisabled); }
+        }
+
         public string ProgressText
         {
-            get { return completed + "/" + Tasks.Count + " 任务"; }
+            get { return completed + "/" + EnabledTaskCount + " 任务"; }
         }
 
         public string TaskSummaryText
         {
-            get { return Tasks.Count + " 个任务 · " + Tasks.Sum(task => task.TotalSteps) + " 个步骤"; }
+            get
+            {
+                var disabled = Tasks.Count(task => task.IsDisabled);
+                var suffix = disabled > 0 ? "（含 " + disabled + " 个禁用任务）" : string.Empty;
+                return Tasks.Count + " 个任务 · " + Tasks.Sum(task => task.TotalSteps) + " 个步骤" + suffix;
+            }
         }
 
         public bool IsCurrent
@@ -84,8 +97,8 @@ namespace IPCDeployment.ViewModels
 
         public void RecordTaskResult(OperationStatus status)
         {
-            if (status == OperationStatus.Succeeded || status == OperationStatus.Failed ||
-                status == OperationStatus.Cancelled)
+            if (status == OperationStatus.Succeeded || status == OperationStatus.Warning ||
+                status == OperationStatus.Failed || status == OperationStatus.Cancelled)
             {
                 completed++;
             }
@@ -98,6 +111,10 @@ namespace IPCDeployment.ViewModels
             {
                 failed++;
             }
+            else if (status == OperationStatus.Warning)
+            {
+                warnings++;
+            }
             OnPropertyChanged("ProgressText");
             UpdateDerived();
         }
@@ -106,6 +123,7 @@ namespace IPCDeployment.ViewModels
         {
             completed = 0;
             failed = 0;
+            warnings = 0;
             notExecuted = 0;
             IsCurrent = false;
             OnPropertyChanged("ProgressText");
@@ -116,16 +134,21 @@ namespace IPCDeployment.ViewModels
         {
             completed = 0;
             failed = 0;
+            warnings = 0;
             notExecuted = 0;
             foreach (var task in Tasks)
             {
-                if (task.Status == OperationStatus.Succeeded || task.Status == OperationStatus.Failed ||
-                    task.Status == OperationStatus.Cancelled)
+                if (task.Status == OperationStatus.Succeeded || task.Status == OperationStatus.Warning ||
+                    task.Status == OperationStatus.Failed || task.Status == OperationStatus.Cancelled)
                 {
                     completed++;
                     if (task.Status == OperationStatus.Failed)
                     {
                         failed++;
+                    }
+                    else if (task.Status == OperationStatus.Warning)
+                    {
+                        warnings++;
                     }
                 }
                 else if (task.Status == OperationStatus.NotExecuted)
@@ -147,6 +170,14 @@ namespace IPCDeployment.ViewModels
                 return;
             }
 
+            if (Tasks.Count > 0 && EnabledTaskCount == 0)
+            {
+                StatusText = "已禁用";
+                StatusGlyph = "–";
+                StatusBrush = NotExecutedBrush;
+                return;
+            }
+
             if (failed > 0)
             {
                 StatusText = "失败";
@@ -155,7 +186,15 @@ namespace IPCDeployment.ViewModels
                 return;
             }
 
-            if (completed >= Tasks.Count && Tasks.Count > 0)
+            if (warnings > 0)
+            {
+                StatusText = "警告";
+                StatusGlyph = "!";
+                StatusBrush = WarningBrush;
+                return;
+            }
+
+            if (EnabledTaskCount > 0 && completed >= EnabledTaskCount)
             {
                 StatusText = "成功";
                 StatusGlyph = "✓";

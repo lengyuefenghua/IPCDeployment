@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Xml.Linq;
 using NUnit.Framework;
 using IPCDeployment.Core;
 
@@ -314,6 +315,53 @@ namespace IPCDeployment.Tests
         }
 
         [Test]
+        public void Load_reads_command_warn_exit_codes()
+        {
+            var result = Load(WrapTask(
+                "<Command id=\"command\" name=\"命令\" file=\"commands/run.exe\" successExitCodes=\"0\" warnExitCodes=\"201\" />"));
+
+            Assert.That(result.IsValid, Is.True, string.Join("; ", result.Errors.Select(e => e.ToDisplayString())));
+            var command = (CommandOperation)result.Config.Operations.Single();
+            Assert.That(command.SuccessExitCodes, Is.EqualTo(new[] { 0 }));
+            Assert.That(command.WarnExitCodes, Is.EqualTo(new[] { 201 }));
+        }
+
+        [Test]
+        public void Load_rejects_overlapping_warn_exit_codes()
+        {
+            var result = Load(WrapTask(
+                "<Command id=\"command\" name=\"命令\" file=\"commands/run.exe\" successExitCodes=\"0,201\" warnExitCodes=\"201\" />"));
+
+            Assert.That(result.IsValid, Is.False);
+        }
+
+        [Test]
+        public void Load_reads_task_enabled_attribute()
+        {
+            var result = Load(WrapGroups(
+                "<Group key=\"g\" name=\"组\">" +
+                "<Task key=\"default\" name=\"默认任务\"><Delay id=\"d1\" name=\"等待\" seconds=\"1\" /></Task>" +
+                "<Task key=\"off\" name=\"禁用任务\" enabled=\"false\"><Delay id=\"d2\" name=\"等待\" seconds=\"1\" /></Task>" +
+                "</Group>"));
+
+            Assert.That(result.IsValid, Is.True, string.Join("; ", result.Errors.Select(e => e.ToDisplayString())));
+            Assert.That(result.Config.Tasks.Single(t => t.Key == "default").Enabled, Is.True);
+            Assert.That(result.Config.Tasks.Single(t => t.Key == "off").Enabled, Is.False);
+            Assert.That(result.Summary.DisabledTaskCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void Load_rejects_a_malformed_task_enabled_attribute()
+        {
+            var result = Load(WrapGroups(
+                "<Group key=\"g\" name=\"组\">" +
+                "<Task key=\"off\" name=\"禁用任务\" enabled=\"off\"><Delay id=\"d1\" name=\"等待\" seconds=\"1\" /></Task>" +
+                "</Group>"));
+
+            Assert.That(result.IsValid, Is.False);
+        }
+
+        [Test]
         public void Repository_configs_load_from_config_directory()
         {
             var directory = new DirectoryInfo(TestContext.CurrentContext.TestDirectory);
@@ -324,11 +372,8 @@ namespace IPCDeployment.Tests
             Assert.That(directory, Is.Not.Null, "repository root not found");
             var loader = new ConfigLoader(new PathPolicy());
             var dataRoot = Path.Combine(directory.FullName, "data");
-            if (!Directory.Exists(dataRoot))
-            {
-                Assert.Ignore("仓库不跟踪 data/，跳过仓库载荷配置测试。");
-            }
             var configDirectory = Path.Combine(directory.FullName, "config");
+            var lithiumDirectory = Path.Combine(directory.FullName, "config-lithium");
 
             var configFiles = Directory.GetFiles(configDirectory, "*.xml")
                 .Where(path => !Path.GetFileName(path).EndsWith(".sample.xml", StringComparison.OrdinalIgnoreCase))
@@ -336,7 +381,26 @@ namespace IPCDeployment.Tests
                 .ToList();
             Assert.That(configFiles, Is.Not.Empty, "no configuration files found");
 
-            foreach (var configFile in configFiles)
+            // 锂电配置不随标准包发布，但仓库里仍要保证三份齐全且为 execute 模式；
+            // 该断言不依赖 data/，克隆后即使忽略载荷也有效。
+            Assert.That(Directory.Exists(lithiumDirectory), Is.True, "config-lithium directory not found");
+            var lithiumFiles = Directory.GetFiles(lithiumDirectory, "*.xml")
+                .OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            Assert.That(lithiumFiles.Count, Is.EqualTo(3), "lithium configs must contain three files");
+            foreach (var lithiumFile in lithiumFiles)
+            {
+                var document = XDocument.Load(lithiumFile);
+                Assert.That(document.Root, Is.Not.Null, Path.GetFileName(lithiumFile));
+                Assert.That((string)document.Root.Attribute("mode"), Is.EqualTo("execute"), Path.GetFileName(lithiumFile));
+            }
+
+            if (!Directory.Exists(dataRoot))
+            {
+                Assert.Ignore("仓库不跟踪 data/，跳过仓库载荷配置测试。");
+            }
+
+            foreach (var configFile in configFiles.Concat(lithiumFiles))
             {
                 var active = loader.Load(configFile, dataRoot);
                 var label = Path.GetFileName(configFile);

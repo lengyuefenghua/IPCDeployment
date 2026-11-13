@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -33,8 +34,10 @@ namespace IPCDeployment.Core
                 LogPath = log == null ? null : log.LogPath
             };
             var tasks = config.Tasks;
-            var totalTasks = tasks.Count;
-            var totalSteps = config.Operations.Count;
+            // 禁用任务不进入执行队列：任务数、步骤数与进度分母都只算启用任务。
+            var totalTasks = tasks.Count(task => task.Enabled);
+            var totalSteps = tasks.Where(task => task.Enabled).Sum(task => task.Operations.Count);
+            var disabledTasks = tasks.Count - totalTasks;
 
             // preview 和未确认的 execute 不进入执行队列，也不推进执行进度。
             if (config.Mode == DeploymentMode.Preview || !confirmed)
@@ -42,6 +45,11 @@ namespace IPCDeployment.Core
                 var reason = config.Mode == DeploymentMode.Preview ? "预览模式：未执行。" : "未确认执行。";
                 foreach (var task in tasks)
                 {
+                    if (!task.Enabled)
+                    {
+                        report.Tasks.Add(CreateTaskResult(task, OperationStatus.Disabled));
+                        continue;
+                    }
                     var taskResult = CreateTaskResult(task, OperationStatus.NotExecuted);
                     foreach (var step in task.Operations)
                     {
@@ -57,7 +65,8 @@ namespace IPCDeployment.Core
             }
 
             PublishLog(progress, log == null ? null : log.Write("INFO", string.Empty,
-                "开始执行队列，共 " + totalTasks + " 个任务。"));
+                "开始执行队列，共 " + totalTasks + " 个任务" +
+                (disabledTasks > 0 ? "，另有 " + disabledTasks + " 个任务已禁用。" : "。")));
 
             var completedTasks = 0;
             var completedSteps = 0;
@@ -74,12 +83,22 @@ namespace IPCDeployment.Core
                         break;
                     }
 
+                    if (!task.Enabled)
+                    {
+                        // 禁用任务只留一条任务级记录，不发任务事件、不产生步骤结果、不占进度。
+                        report.Tasks.Add(CreateTaskResult(task, OperationStatus.Disabled));
+                        PublishLog(progress, log == null ? null : log.Write("INFO", task.Key,
+                            "任务已禁用：" + task.GroupName + " / " + task.Name + "。"), task);
+                        continue;
+                    }
+
                     taskIndex++;
                     var taskResult = CreateTaskResult(task, OperationStatus.Pending);
                     var taskStepTotal = task.Operations.Count;
                     var completedTaskSteps = 0;
                     var taskFailed = false;
                     var taskCancelled = false;
+                    var taskWarning = false;
                     var taskStopwatch = Stopwatch.StartNew();
 
                     PublishTaskStarted(progress, task, taskIndex, totalTasks, completedTasks, taskStepTotal);
@@ -150,6 +169,11 @@ namespace IPCDeployment.Core
                             taskCancelled = true;
                             cancelled = true;
                         }
+                        else if (result.Status == OperationStatus.Warning)
+                        {
+                            // 警告不结束任务，继续执行后续步骤。
+                            taskWarning = true;
+                        }
 
                         taskResult.Results.Add(result);
                         report.Results.Add(result);
@@ -194,7 +218,9 @@ namespace IPCDeployment.Core
                     taskResult.Elapsed = taskStopwatch.Elapsed;
                     taskResult.Status = taskFailed
                         ? OperationStatus.Failed
-                        : taskCancelled ? OperationStatus.Cancelled : OperationStatus.Succeeded;
+                        : taskCancelled
+                            ? OperationStatus.Cancelled
+                            : taskWarning ? OperationStatus.Warning : OperationStatus.Succeeded;
                     report.Tasks.Add(taskResult);
                     completedTasks++;
                     PublishTaskCompleted(progress, task, taskResult.Status, taskIndex, totalTasks,
@@ -202,7 +228,9 @@ namespace IPCDeployment.Core
 
                     var taskLevel = taskResult.Status == OperationStatus.Failed
                         ? "ERROR"
-                        : taskResult.Status == OperationStatus.Cancelled ? "WARN" : "INFO";
+                        : taskResult.Status == OperationStatus.Cancelled || taskResult.Status == OperationStatus.Warning
+                            ? "WARN"
+                            : "INFO";
                     PublishLog(progress, log == null ? null : log.Write(taskLevel, task.Key,
                         "任务结束：" + task.GroupName + " / " + task.Name + "；状态：" +
                         StatusText(taskResult.Status) + "；已执行步骤 " + completedTaskSteps + "/" + taskStepTotal +
@@ -220,10 +248,15 @@ namespace IPCDeployment.Core
                 }
             }
 
-            // 取消后未开始的任务统一标记为未执行，但不计入全局进度。
+            // 取消后未开始的任务统一标记：禁用任务仍为已禁用，其余为未执行；都不计入全局进度。
             for (var index = report.Tasks.Count; index < tasks.Count; index++)
             {
                 var task = tasks[index];
+                if (!task.Enabled)
+                {
+                    report.Tasks.Add(CreateTaskResult(task, OperationStatus.Disabled));
+                    continue;
+                }
                 var taskResult = CreateTaskResult(task, OperationStatus.NotExecuted);
                 foreach (var step in task.Operations)
                 {
@@ -236,9 +269,10 @@ namespace IPCDeployment.Core
 
             Finish(report, cancelled);
             PublishLog(progress, log == null ? null : log.Write("INFO", string.Empty,
-                "执行队列结束：任务 " + report.CompletedTaskCount + "/" + report.TotalTaskCount +
-                " 已结束，成功 " + report.SucceededTaskCount + "，失败 " + report.FailedTaskCount +
-                "，取消 " + report.CancelledTaskCount + "，未执行 " + report.NotExecutedTaskCount + "。"));
+                "执行队列结束：任务 " + report.CompletedTaskCount + "/" + report.EnabledTaskCount +
+                " 已结束，成功 " + report.SucceededTaskCount + "，警告 " + report.WarningTaskCount +
+                "，失败 " + report.FailedTaskCount + "，取消 " + report.CancelledTaskCount +
+                "，未执行 " + report.NotExecutedTaskCount + "，禁用 " + report.DisabledTaskCount + "。"));
             PublishQueueCompleted(progress, report);
             return report;
         }
@@ -466,6 +500,8 @@ namespace IPCDeployment.Core
             if (status == OperationStatus.Cancelled) return "已取消";
             if (status == OperationStatus.AlreadySatisfied) return "已满足";
             if (status == OperationStatus.NotExecuted) return "未执行";
+            if (status == OperationStatus.Disabled) return "已禁用";
+            if (status == OperationStatus.Warning) return "警告";
             if (status == OperationStatus.Running) return "运行中";
             return "等待";
         }

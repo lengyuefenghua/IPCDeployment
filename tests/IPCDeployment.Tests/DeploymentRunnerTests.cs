@@ -117,6 +117,51 @@ namespace IPCDeployment.Tests
             Assert.That(report.NotExecutedTaskCount, Is.EqualTo(2));
         }
 
+        [Test]
+        public async Task Disabled_task_is_skipped_and_excluded_from_task_progress()
+        {
+            var executor = new RecordingExecutor("Fake");
+            var disabled = Task("g", "组", "t2", "禁用任务", new TestOperation("skip", "skip"));
+            disabled.Enabled = false;
+            var config = CreateConfig(DeploymentMode.Execute,
+                Task("g", "组", "t1", "任务一", new TestOperation("one", "one")),
+                disabled,
+                Task("g", "组", "t3", "任务三", new TestOperation("three", "three")));
+            var progress = new RecordingProgress();
+
+            var report = await CreateRunner(executor).RunAsync(config, true, progress, CancellationToken.None);
+
+            Assert.That(executor.ExecutedIds, Is.EqualTo(new[] { "one", "three" }));
+            var disabledResult = report.Tasks.Single(t => t.TaskKey == "t2");
+            Assert.That(disabledResult.Status, Is.EqualTo(OperationStatus.Disabled));
+            Assert.That(disabledResult.Results, Is.Empty);
+            Assert.That(report.DisabledTaskCount, Is.EqualTo(1));
+            Assert.That(report.EnabledTaskCount, Is.EqualTo(2));
+            Assert.That(report.CompletedTaskCount, Is.EqualTo(2));
+            Assert.That(progress.Events.Any(e => e.Kind == DeploymentEventKind.TaskStarted && e.TaskKey == "t2"), Is.False);
+            var lastCompleted = progress.Events.Last(e => e.Kind == DeploymentEventKind.TaskCompleted);
+            Assert.That(lastCompleted.CompletedTasks, Is.EqualTo(2));
+            Assert.That(lastCompleted.TaskTotal, Is.EqualTo(2));
+        }
+
+        [Test]
+        public async Task Warning_step_keeps_task_running_and_counts_as_ended()
+        {
+            var executor = new RecordingExecutor("Fake") { WarnOperationId = "warn" };
+            var config = CreateConfig(DeploymentMode.Execute,
+                Task("g", "组", "t1", "任务一", new TestOperation("warn", "warn"), new TestOperation("after", "after")),
+                Task("g", "组", "t2", "任务二", new TestOperation("next", "next")));
+
+            var report = await CreateRunner(executor).RunAsync(config, true, null, CancellationToken.None);
+
+            Assert.That(executor.ExecutedIds, Is.EqualTo(new[] { "warn", "after", "next" }));
+            Assert.That(report.Tasks[0].Status, Is.EqualTo(OperationStatus.Warning));
+            Assert.That(report.Tasks[1].Status, Is.EqualTo(OperationStatus.Succeeded));
+            Assert.That(report.WarningTaskCount, Is.EqualTo(1));
+            Assert.That(report.FailedTaskCount, Is.EqualTo(0));
+            Assert.That(report.CompletedTaskCount, Is.EqualTo(2));
+        }
+
         private static DeploymentRunner CreateRunner(RecordingExecutor executor)
         {
             var registry = new OperationRegistry();

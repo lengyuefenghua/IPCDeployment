@@ -202,7 +202,9 @@ namespace IPCDeployment.Core
         {
             return new List<ConfigField>
             {
-                new ConfigField("name", "任务名称", FieldInputKind.Text, true).WithSection("基本信息")
+                new ConfigField("name", "任务名称", FieldInputKind.Text, true).WithSection("基本信息"),
+                new ConfigField("enabled", "启用任务", FieldInputKind.Boolean, false).WithSection("基本信息")
+                    .WithHint("取消勾选表示禁用：该任务不执行，也不计入进度。")
             };
         }
 
@@ -276,6 +278,9 @@ namespace IPCDeployment.Core
                     fields.Add(new ConfigField("successExitCodes", "成功退出码", FieldInputKind.Text, false)
                         .WithSection("执行").WithCheck(FieldValidationKind.ExitCodes)
                         .WithHint("逗号分隔，默认 0。"));
+                    fields.Add(new ConfigField("warnExitCodes", "警告退出码", FieldInputKind.Text, false)
+                        .WithSection("执行").WithCheck(FieldValidationKind.ExitCodes)
+                        .WithHint("逗号分隔；命中时步骤标记警告，但不结束任务。"));
                     fields.Add(new ConfigField("language", "内嵌语言", FieldInputKind.Enum, false)
                         .WithSection("内嵌代码").WithOptions("cmd", "powershell").WithHint("仅内嵌代码模式填写。"));
                     fields.Add(new ConfigField("strict", "严格模式", FieldInputKind.Boolean, false)

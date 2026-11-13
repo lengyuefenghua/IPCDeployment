@@ -4,7 +4,7 @@
 解压后直接运行、无需安装器和卸载项的 Windows 桌面程序。Avoid: 安装版、安装包。
 
 ## 配置文件
-程序目录 config/ 下的 XML（默认 config/config.xml，可在界面下拉切换其他直属 XML），声明模式、分组、任务、步骤、源路径和目标路径；config.sample.xml 仅作配置示例，不参与选择与自动加载。Avoid: data/config.xml、程序根目录 config.xml、部署脚本。
+程序目录 config/ 下的 XML（默认 config/config.xml，可在界面下拉切换其他直属 XML），声明模式、分组、任务、步骤、源路径和目标路径；config.sample.xml 仅作配置示例，不参与选择与自动加载。锂电三工位配置在仓库 config-lithium/，单独打包，复制进 config/ 后才可选。Avoid: data/config.xml、程序根目录 config.xml、部署脚本。
 
 ## 数据目录
 程序目录下的 data/，只存放安装包、复制源和命令，不存放配置文件。Avoid: 配置目录、payload。

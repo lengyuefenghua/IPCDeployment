@@ -20,7 +20,11 @@ namespace IPCDeployment.Core
         Failed,
         AlreadySatisfied,
         Cancelled,
-        NotExecuted
+        NotExecuted,
+        // 仅用于任务级：任务在配置中被禁用，不进入执行队列。
+        Disabled,
+        // 步骤或任务已执行但结果需要人工关注（例如 Defender 因篡改保护未能关闭）。
+        Warning
     }
 
     public enum DataArea
@@ -164,6 +168,7 @@ namespace IPCDeployment.Core
         public string ResolvedWorkingDirectory { get; set; }
         public int TimeoutMinutes { get; set; }
         public int[] SuccessExitCodes { get; set; }
+        public int[] WarnExitCodes { get; set; }
         public CommandLanguage Language { get; set; }
         public string Code { get; set; }
         public bool Strict { get; set; }
@@ -171,6 +176,7 @@ namespace IPCDeployment.Core
         public CommandOperation()
         {
             Strict = true;
+            WarnExitCodes = new int[0];
         }
     }
 
@@ -225,10 +231,13 @@ namespace IPCDeployment.Core
         public string GroupKey { get; set; }
         public string GroupName { get; set; }
         public List<DeploymentOperation> Operations { get; set; }
+        /// <summary>配置中的 enabled 属性；false 表示任务整体不执行。</summary>
+        public bool Enabled { get; set; }
 
         public DeploymentTask()
         {
             Operations = new List<DeploymentOperation>();
+            Enabled = true;
         }
     }
 
@@ -276,6 +285,8 @@ namespace IPCDeployment.Core
     {
         public int GroupCount { get; set; }
         public int TaskCount { get; set; }
+        /// <summary>被 enabled="false" 禁用的任务数；TaskCount 仍包含它们。</summary>
+        public int DisabledTaskCount { get; set; }
         public int TotalOperations { get; set; }
         public int InstallCount { get; set; }
         public int CopyCount { get; set; }
@@ -406,6 +417,16 @@ namespace IPCDeployment.Core
                 Detail = detail
             };
         }
+
+        public static OperationResult Warning(string operationId, string detail)
+        {
+            return new OperationResult
+            {
+                OperationId = operationId,
+                Status = OperationStatus.Warning,
+                Detail = detail
+            };
+        }
     }
 
     public sealed class DeploymentTaskResult
@@ -445,14 +466,30 @@ namespace IPCDeployment.Core
             get { return Tasks.Count; }
         }
 
+        /// <summary>进入执行队列的任务数；用于全局进度分母。</summary>
+        public int EnabledTaskCount
+        {
+            get { return Tasks.Count(t => t.Status != OperationStatus.Disabled); }
+        }
+
+        public int DisabledTaskCount
+        {
+            get { return Tasks.Count(t => t.Status == OperationStatus.Disabled); }
+        }
+
         public int CompletedTaskCount
         {
-            get { return Tasks.Count(t => t.Status == OperationStatus.Succeeded || t.Status == OperationStatus.Failed || t.Status == OperationStatus.Cancelled); }
+            get { return Tasks.Count(t => t.Status == OperationStatus.Succeeded || t.Status == OperationStatus.Warning || t.Status == OperationStatus.Failed || t.Status == OperationStatus.Cancelled); }
         }
 
         public int SucceededTaskCount
         {
             get { return Tasks.Count(t => t.Status == OperationStatus.Succeeded); }
+        }
+
+        public int WarningTaskCount
+        {
+            get { return Tasks.Count(t => t.Status == OperationStatus.Warning); }
         }
 
         public int FailedTaskCount
@@ -483,6 +520,11 @@ namespace IPCDeployment.Core
         public int AlreadySatisfiedCount
         {
             get { return Count(OperationStatus.AlreadySatisfied); }
+        }
+
+        public int WarningCount
+        {
+            get { return Count(OperationStatus.Warning); }
         }
 
         public int CancelledCount

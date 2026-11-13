@@ -195,6 +195,23 @@ namespace IPCDeployment.Tests
             Assert.That(Directory.GetFiles(tempDirectory, "*.tmp-*"), Is.Empty, "临时文件必须清理");
         }
 
+        [Test]
+        public void 任务启用开关缺省为开_取消勾选写回禁用()
+        {
+            var document = ConfigurationDocument.CreateNew(dataRoot);
+            var task = document.Root.Children[0].Children[0];
+            var field = document.FieldsOf(task).Single(item => item.Name == "enabled");
+
+            Assert.That(document.GetValue(task, field), Is.EqualTo("true"));
+
+            document.SetValue(task, field, "false");
+            Assert.That((string)task.Element.Attribute("enabled"), Is.EqualTo("false"));
+
+            document.SetValue(task, field, "true");
+            Assert.That(task.Element.Attribute("enabled"), Is.Null);
+            Assert.That(document.GetValue(task, field), Is.EqualTo("true"));
+        }
+
         private static string Describe(IEnumerable<ConfigIssue> issues)        {
             return string.Join("; ", issues.Select(issue => issue.ToDisplayString()));
         }

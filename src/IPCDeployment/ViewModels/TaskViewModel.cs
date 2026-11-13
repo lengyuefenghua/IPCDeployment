@@ -11,6 +11,7 @@ namespace IPCDeployment.ViewModels
         private static readonly Brush CompletedBrush = CreateBrush("#15803D");
         private static readonly Brush FailedBrush = CreateBrush("#DC2626");
         private static readonly Brush NotExecutedBrush = CreateBrush("#6B7280");
+        private static readonly Brush WarningBrush = CreateBrush("#B45309");
 
         private OperationStatus status;
         private int completedSteps;
@@ -26,18 +27,25 @@ namespace IPCDeployment.ViewModels
             Name = task.Name;
             GroupKey = task.GroupKey;
             GroupName = task.GroupName;
+            IsDisabled = !task.Enabled;
             Steps = new ObservableCollection<OperationViewModel>();
             foreach (var step in task.Operations)
             {
                 Steps.Add(new OperationViewModel(step));
             }
             status = OperationStatus.Pending;
+            if (IsDisabled)
+            {
+                SetStatus(OperationStatus.Disabled);
+            }
         }
 
         public string Key { get; private set; }
         public string Name { get; private set; }
         public string GroupKey { get; private set; }
         public string GroupName { get; private set; }
+        /// <summary>配置中 enabled=false 的任务；不执行，也不计入进度。</summary>
+        public bool IsDisabled { get; private set; }
         public ObservableCollection<OperationViewModel> Steps { get; private set; }
 
         public int TotalSteps
@@ -57,7 +65,7 @@ namespace IPCDeployment.ViewModels
 
         public string ProgressText
         {
-            get { return completedSteps + "/" + TotalSteps + " 步"; }
+            get { return IsDisabled ? "已禁用" : completedSteps + "/" + TotalSteps + " 步"; }
         }
 
         public OperationStatus Status
@@ -131,14 +139,16 @@ namespace IPCDeployment.ViewModels
         {
             Status = newStatus;
             if (newStatus == OperationStatus.Failed || newStatus == OperationStatus.Cancelled ||
-                newStatus == OperationStatus.NotExecuted)
+                newStatus == OperationStatus.NotExecuted || newStatus == OperationStatus.Disabled)
             {
                 foreach (var step in Steps)
                 {
                     if (step.Status == OperationStatus.Pending || step.Status == OperationStatus.Running)
                     {
-                        step.SetStatus(OperationStatus.NotExecuted,
-                            newStatus == OperationStatus.NotExecuted ? "任务未执行。" : "任务已结束，未执行。",
+                        step.SetStatus(newStatus,
+                            newStatus == OperationStatus.Disabled
+                                ? "任务已禁用。"
+                                : newStatus == OperationStatus.NotExecuted ? "任务未执行。" : "任务已结束，未执行。",
                             null, false);
                     }
                 }
@@ -151,11 +161,15 @@ namespace IPCDeployment.ViewModels
             completedSteps = 0;
             IsCurrent = false;
             ElapsedText = string.Empty;
-            Status = OperationStatus.Pending;
             foreach (var step in Steps)
             {
                 step.Reset();
+                if (IsDisabled)
+                {
+                    step.SetStatus(OperationStatus.Disabled, "任务已禁用。", null, false);
+                }
             }
+            Status = IsDisabled ? OperationStatus.Disabled : OperationStatus.Pending;
             OnPropertyChanged("CompletedSteps");
             OnPropertyChanged("ProgressPercent");
             OnPropertyChanged("ProgressText");
@@ -172,6 +186,20 @@ namespace IPCDeployment.ViewModels
                 return;
             }
 
+            if (Status == OperationStatus.Disabled)
+            {
+                StatusText = "已禁用";
+                StatusGlyph = "–";
+                StatusBrush = NotExecutedBrush;
+                return;
+            }
+            if (Status == OperationStatus.Warning)
+            {
+                StatusText = "警告";
+                StatusGlyph = "!";
+                StatusBrush = WarningBrush;
+                return;
+            }
             if (Status == OperationStatus.Succeeded)
             {
                 StatusText = "成功";

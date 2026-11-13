@@ -48,7 +48,7 @@ namespace IPCDeployment.ViewModels
         public ObservableCollection<EditorFieldSectionViewModel> Sections { get; } = new ObservableCollection<EditorFieldSectionViewModel>();
         public ObservableCollection<EditorIssueViewModel> Issues { get; } = new ObservableCollection<EditorIssueViewModel>();
         public ObservableCollection<EditorSearchResultViewModel> SearchResults { get; } = new ObservableCollection<EditorSearchResultViewModel>();
-        public ObservableCollection<string> ConfigFiles { get; } = new ObservableCollection<string>();
+        public ObservableCollection<ConfigFileItem> ConfigFiles { get; } = new ObservableCollection<ConfigFileItem>();
 
         /// <summary>用户在下拉里选了另一份配置时触发，由窗口负责未保存确认与实际打开。</summary>
         public event Action<string> ConfigSwitchRequested;
@@ -112,22 +112,23 @@ namespace IPCDeployment.ViewModels
         /// <summary>刷新 config 目录下的配置列表（示例文件不参与选择）。</summary>
         public void RefreshConfigFiles()
         {
-            ConfigFiles.Clear();
-            if (!Directory.Exists(configDirectory))
+            var desired = new List<ConfigFileItem>();
+            if (Directory.Exists(configDirectory))
             {
-                return;
-            }
-            foreach (var file in Directory.GetFiles(configDirectory, "*.xml")
-                .OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase))
-            {
-                var name = Path.GetFileName(file);
-                if (ConfigFileRules.IsSampleConfig(name))
+                foreach (var file in Directory.GetFiles(configDirectory, "*.xml")
+                    .OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase))
                 {
-                    continue;
+                    var name = Path.GetFileName(file);
+                    if (ConfigFileRules.IsSampleConfig(name))
+                    {
+                        continue;
+                    }
+                    desired.Add(ConfigFileItem.Create(file));
                 }
-                ConfigFiles.Add(name);
             }
-            // 列表重建会让下拉短暂失去选中项，这里把文档对应的文件名推回去。
+            // 增量同步：列表没变时不碰集合，避免展开下拉时选中项被清空。
+            ConfigFileItem.Sync(ConfigFiles, desired);
+            // 列表变化后把文档对应的文件名推回去，避免下拉短暂失去选中项。
             OnPropertyChanged("SelectedConfigFile");
         }
 
@@ -878,13 +879,14 @@ namespace IPCDeployment.ViewModels
             }
             SavedAtText = "未保存";
 
-            if (field.Name == "name" || field.Name == "key")
+            if (field.Name == "name" || field.Name == "key" || field.Name == "enabled")
             {
                 if (viewModel != null)
                 {
                     viewModel.RefreshName();
                 }
                 OnPropertyChanged("SelectedTitle");
+                OnPropertyChanged("SelectedTypeText");
                 OnPropertyChanged("BreadcrumbText");
             }
 

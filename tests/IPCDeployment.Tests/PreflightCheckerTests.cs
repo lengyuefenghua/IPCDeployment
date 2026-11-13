@@ -179,6 +179,31 @@ namespace IPCDeployment.Tests
             }
         }
 
+        [Test]
+        public void Check_skips_operations_of_disabled_tasks()
+        {
+            var config = CreateConfig();
+            config.Tasks.Add(new DeploymentTask { Key = "disabled", Name = "禁用任务", Enabled = false });
+            config.Operations.Add(new NetworkOperation
+            {
+                Id = "network",
+                Name = "network",
+                Type = "Network",
+                TaskKey = "disabled",
+                Adapter = "missing",
+                Kind = NetworkOperationKind.AdvancedProperty,
+                Keyword = "*JumboPacket",
+                Value = "9014",
+                ValueType = RegistryValueType.String,
+                Order = 0
+            });
+            var environment = new FakePreflightEnvironment { AdapterPresent = false };
+
+            var result = new PreflightChecker(new PathPolicy()).Check(config, packageRoot, environment);
+
+            Assert.That(result.Errors, Is.Empty);
+        }
+
         private static DeploymentConfig CreateConfig()
         {
             return new DeploymentConfig

@@ -29,6 +29,30 @@ namespace IPCDeployment.Tests
         }
 
         [Test]
+        public async Task Warning_exit_code_returns_warning_status()
+        {
+            var file = CreateCommand();
+            var runner = new FakeProcessRunner
+            {
+                Result = new ProcessResult { ExitCode = 201, Output = "tamper protected", Error = string.Empty }
+            };
+            var operation = new CommandOperation
+            {
+                Id = "command",
+                Name = "command",
+                Type = "Command",
+                ResolvedFile = file,
+                TimeoutMinutes = 1,
+                SuccessExitCodes = new[] { 0 },
+                WarnExitCodes = new[] { 201 }
+            };
+
+            var result = await new CommandOperationExecutor().ExecuteAsync(operation, CreateContext(runner), CancellationToken.None);
+
+            Assert.That(result.Status, Is.EqualTo(OperationStatus.Warning));
+        }
+
+        [Test]
         public async Task Command_passes_arguments_and_working_directory()
         {
             var file = CreateCommand();

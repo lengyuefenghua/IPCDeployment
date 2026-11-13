@@ -122,6 +122,10 @@ namespace IPCDeployment.Core
             {
                 AddError(result, root, "至少需要声明一个步骤。");
             }
+            if (config.Tasks.Count > 0 && config.Tasks.All(t => !t.Enabled))
+            {
+                AddWarning(result, root, "所有任务均已禁用，执行不会做任何操作。");
+            }
 
             for (var index = 0; index < config.Operations.Count; index++)
             {
@@ -225,7 +229,7 @@ namespace IPCDeployment.Core
                         continue;
                     }
 
-                    CheckAttributes(taskElement, result, "key", "name");
+                    CheckAttributes(taskElement, result, "key", "name", "enabled");
                     var taskKey = RequireAttribute(taskElement, "key", result, "Task");
                     var taskName = RequireAttribute(taskElement, "name", result, "Task");
                     if (taskKey == null || taskName == null)
@@ -237,10 +241,20 @@ namespace IPCDeployment.Core
                         AddError(result, taskElement, "任务 key 重复：" + taskKey + "。");
                     }
 
+                    // 缺省启用；只有显式 enabled="false" 才把任务排除在执行队列外。
+                    var taskEnabled = true;
+                    var enabledValue = GetAttribute(taskElement, "enabled");
+                    if (!string.IsNullOrWhiteSpace(enabledValue) && !bool.TryParse(enabledValue, out taskEnabled))
+                    {
+                        AddError(result, taskElement, "enabled 必须是 true 或 false。");
+                        taskEnabled = true;
+                    }
+
                     var task = new DeploymentTask
                     {
                         Key = taskKey,
                         Name = taskName,
+                        Enabled = taskEnabled,
                         GroupKey = group.Key,
                         GroupName = group.Name,
                         Line = LineOf(taskElement),
@@ -361,7 +375,7 @@ namespace IPCDeployment.Core
             }
 
             var timeout = ReadTimeout(element, 15, result, "Install");
-            var successCodes = ReadSuccessCodes(element, result);
+            var successCodes = ReadExitCodes(element, result, "successExitCodes", new[] { 0 });
             var skipIf = GetAttribute(element, "skipIfFileExists");
             if (!string.IsNullOrWhiteSpace(skipIf))
             {
@@ -515,7 +529,7 @@ namespace IPCDeployment.Core
         private DeploymentOperation ParseCommand(XElement element, ConfigLoadResult result, string dataRoot, HashSet<string> ids)
         {
             CheckAttributes(element, result, "id", "name", "file", "arguments", "workingDirectory",
-                "timeoutMinutes", "successExitCodes", "language", "strict");
+                "timeoutMinutes", "successExitCodes", "warnExitCodes", "language", "strict");
             var common = ReadCommon(element, result, ids);
             if (!common.Valid)
             {
@@ -655,6 +669,13 @@ namespace IPCDeployment.Core
                 }
             }
 
+            var successCodes = ReadExitCodes(element, result, "successExitCodes", new[] { 0 });
+            var warnCodes = ReadExitCodes(element, result, "warnExitCodes", new int[0]);
+            if (warnCodes.Length > 0 && warnCodes.Any(warnCode => successCodes.Contains(warnCode)))
+            {
+                AddError(result, element, "warnExitCodes 不能与 successExitCodes 重复。");
+            }
+
             var operation = new CommandOperation
             {
                 File = file,
@@ -663,7 +684,8 @@ namespace IPCDeployment.Core
                 WorkingDirectory = workingDirectory,
                 ResolvedWorkingDirectory = resolvedWorkingDirectory,
                 TimeoutMinutes = ReadTimeout(element, 10, result, "Command"),
-                SuccessExitCodes = ReadSuccessCodes(element, result),
+                SuccessExitCodes = successCodes,
+                WarnExitCodes = warnCodes,
                 Language = language,
                 Code = code,
                 Strict = strict
@@ -1061,7 +1083,8 @@ namespace IPCDeployment.Core
             var summary = new ConfigSummary
             {
                 GroupCount = config.Groups.Count,
-                TaskCount = config.Tasks.Count
+                TaskCount = config.Tasks.Count,
+                DisabledTaskCount = config.Tasks.Count(t => !t.Enabled)
             };
             foreach (var operation in config.Operations)
             {
@@ -1144,12 +1167,12 @@ namespace IPCDeployment.Core
             return timeout;
         }
 
-        private static int[] ReadSuccessCodes(XElement element, ConfigLoadResult result)
+        private static int[] ReadExitCodes(XElement element, ConfigLoadResult result, string attribute, int[] fallback)
         {
-            var value = GetAttribute(element, "successExitCodes");
+            var value = GetAttribute(element, attribute);
             if (string.IsNullOrWhiteSpace(value))
             {
-                return new[] { 0 };
+                return fallback;
             }
 
             var parts = value.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
@@ -1159,15 +1182,15 @@ namespace IPCDeployment.Core
                 int code;
                 if (!int.TryParse(part.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out code))
                 {
-                    AddError(result, element, "successExitCodes 必须是逗号分隔的整数。");
-                    return new[] { 0 };
+                    AddError(result, element, attribute + " 必须是逗号分隔的整数。");
+                    return fallback;
                 }
                 codes.Add(code);
             }
             if (codes.Count == 0)
             {
-                AddError(result, element, "successExitCodes 至少需要一个值。");
-                return new[] { 0 };
+                AddError(result, element, attribute + " 至少需要一个值。");
+                return fallback;
             }
             return codes.ToArray();
         }
@@ -1446,6 +1469,11 @@ namespace IPCDeployment.Core
         private static void AddError(ConfigLoadResult result, XObject element, string message)
         {
             AddIssue(result, element, message, false);
+        }
+
+        private static void AddWarning(ConfigLoadResult result, XObject element, string message)
+        {
+            AddIssue(result, element, message, true);
         }
 
         private static void AddError(ConfigLoadResult result, int line, int column, string message)
