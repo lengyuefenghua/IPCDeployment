@@ -57,3 +57,8 @@
 
 - 改动：新增根目录 `操作手册.html`（单文件离线，仅覆盖标准配置 `config/config.xml`）；新增 `scripts/build-manual.ps1` 用本机 Edge/Chrome 无头模式生成 PDF；`scripts/package-portable.ps1` 在标准包内增加 `操作手册.pdf`，HTML 不随包。
 - 验证：`build-manual.ps1` 生成 767468 字节 PDF（文件头 `%PDF`）；HTML 内部锚点 15 个全部可达、无外部 http(s) 引用；两个 PowerShell 脚本语法解析 0 错误。
+
+## 2026-11-13 手册更名与软件变化同步
+
+- 改动：`操作手册.html` 更名为 `IPCDeployment-使用手册.html`，PDF 输出改为 `build/manual/IPCDeployment-使用手册.pdf`，发布包内为 `IPCDeployment-使用手册.pdf`；手册补充 MSI Afterburner 便携包、Npcap 前置步骤、运行时“警告”状态/警告任务卡片/WARN 日志；删除未使用的 DBX 安装包。
+- 验证：`build-manual.ps1` 生成 783126 字节 PDF（`%PDF`）；HTML 锚点 15 个可达、无外部 http(s)；两个脚本语法解析 0 错误。

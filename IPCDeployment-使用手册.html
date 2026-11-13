@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>工控机部署工具 · 一线操作手册（标准模式）</title>
+<title>IPCDeployment-使用手册（标准模式）</title>
 <style>
   :root {
     --ink: #172033;
@@ -409,6 +409,7 @@
   .dot-wait { color: var(--muted-2); }
   .dot-run { color: var(--blue); }
   .dot-ok { color: var(--green); }
+  .dot-warn { color: var(--amber); }
   .dot-fail { color: #dc2626; }
   .dot-skip { color: var(--muted); }
 
@@ -573,7 +574,7 @@
 <div class="layout">
   <aside class="sidebar" aria-label="手册目录">
     <div class="brand"><span class="brand-mark">IP</span><span>工控机部署工具</span></div>
-    <p class="brand-sub">一线操作手册 · 标准模式</p>
+    <p class="brand-sub">IPCDeployment-使用手册 · 标准模式</p>
 
     <div class="search">
       <input id="navSearch" type="search" placeholder="搜索目录…" autocomplete="off" aria-label="搜索目录">
@@ -607,7 +608,7 @@
   <main id="main">
     <header class="hero" id="top">
       <p class="eyebrow">IPCDeployment · 标准模式</p>
-      <h1>工控机部署工具<br><span>一线操作手册</span></h1>
+      <h1>工控机部署工具<br><span>IPCDeployment-使用手册</span></h1>
       <p class="lead">
         本手册面向现场操作人员，只说明标准配置包的使用方法：如何选择配置、校验、开始部署、观察进度、停止任务、判断结果和查看日志。
         不展开 XML 编写细节，也不涉及模切、下料、卷绕等独立配置包。
@@ -692,10 +693,10 @@
         <ul class="clean">
           <li><strong>任务总览</strong>：查看配置摘要、统计、配置文件选择和任务概况。</li>
           <li><strong>各分组</strong>：按分组查看任务和步骤；执行时这里会显示实时进度。</li>
-          <li><strong>部署完成</strong>：执行结束后查看成功、失败、未执行和禁用统计；未执行过时点它会回到总览。</li>
+          <li><strong>部署完成</strong>：执行结束后查看成功、警告、失败、未执行和禁用统计；未执行过时点它会回到总览。</li>
         </ul>
         <p>每个导航项左侧有状态符号，右侧显示进度。常见符号：</p>
-        <p><span class="status-dot dot-wait">○</span> 等待/未开始　<span class="status-dot dot-run">●</span> 运行中　<span class="status-dot dot-ok">✓</span> 成功　<span class="status-dot dot-fail">×</span> 失败　<span class="status-dot dot-skip">–</span> 未执行/已禁用/已满足</p>
+        <p><span class="status-dot dot-wait">○</span> 等待/未开始　<span class="status-dot dot-run">●</span> 运行中　<span class="status-dot dot-ok">✓</span> 成功　<span class="status-dot dot-warn">!</span> 警告　<span class="status-dot dot-fail">×</span> 失败　<span class="status-dot dot-skip">–</span> 未执行/已禁用/已满足</p>
 
         <h3>2.3 任务总览页</h3>
         <ul class="clean">
@@ -716,7 +717,7 @@
 
         <h3>2.5 部署完成页</h3>
         <ul class="clean">
-          <li>五张统计卡片：总任务、成功任务、失败任务、未执行任务、禁用任务。</li>
+          <li>六张统计卡片：总任务、成功任务、警告任务、失败任务、未执行任务、禁用任务。</li>
           <li>左侧“分组结果”：按分组查看整体状态。</li>
           <li>右侧“任务结果”：查看每个任务的步骤、状态、原因和耗时。</li>
         </ul>
@@ -752,7 +753,7 @@
         <ol class="steps">
           <li>
             <strong>解压发布包</strong>
-            <p>把 <code>IPCDeployment-1.0.0-win-x64.zip</code> 解压到可写目录。确认目录里有 <code>IPCDeployment.exe</code>、<code>config\</code>、<code>data\</code>、<code>使用说明.md</code>、<code>XML配置说明.md</code>，以及发布时生成的 <code>操作手册.pdf</code>。</p>
+            <p>把 <code>IPCDeployment-1.0.0-win-x64.zip</code> 解压到可写目录。确认目录里有 <code>IPCDeployment.exe</code>、<code>config\</code>、<code>data\</code>、<code>使用说明.md</code>、<code>XML配置说明.md</code>，以及发布时生成的 <code>IPCDeployment-使用手册.pdf</code>。</p>
           </li>
           <li>
             <strong>双击启动并确认 UAC</strong>
@@ -776,11 +777,11 @@
           </li>
           <li>
             <strong>观察执行进度</strong>
-            <p>界面会自动跳到当前分组。看左侧任务列表和右侧步骤列表：当前任务显示“运行中”，步骤显示“成功 / 失败 / 已满足 / 未执行”，右侧显示耗时。</p>
+            <p>界面会自动跳到当前分组。看左侧任务列表和右侧步骤列表：当前任务显示“运行中”，步骤显示“成功 / 警告 / 失败 / 已满足 / 未执行”，右侧显示耗时。</p>
           </li>
           <li>
             <strong>查看执行结果</strong>
-            <p>结束后自动进入“部署完成”。先看五张统计卡片，再点左侧分组、右侧任务，定位失败步骤和原因。</p>
+            <p>结束后自动进入“部署完成”。先看六张统计卡片，再点左侧分组、右侧任务，定位失败或警告步骤及原因。</p>
           </li>
           <li>
             <strong>按提示重启</strong>
@@ -826,6 +827,7 @@
             <tr><td><span class="status-dot dot-wait">○</span></td><td>等待</td><td>还没开始。</td></tr>
             <tr><td><span class="status-dot dot-run">●</span></td><td>运行中 / 进行中</td><td>当前任务或步骤正在执行。</td></tr>
             <tr><td><span class="status-dot dot-ok">✓</span></td><td>成功</td><td>所有步骤完成。</td></tr>
+            <tr><td><span class="status-dot dot-warn">!</span></td><td>警告</td><td>步骤执行完成，但有需要关注的信息；后续步骤继续，任务最终以“警告”结束。</td></tr>
             <tr><td><span class="status-dot dot-fail">×</span></td><td>失败</td><td>有步骤失败，任务提前结束。</td></tr>
             <tr><td><span class="status-dot dot-skip">–</span></td><td>已满足</td><td>目标状态已经存在，没有重复执行。</td></tr>
             <tr><td><span class="status-dot dot-skip">–</span></td><td>未执行</td><td>前面步骤失败或任务被停止，这一步没有跑。</td></tr>
@@ -833,6 +835,7 @@
             <tr><td><span class="status-dot dot-skip">■</span></td><td>已取消</td><td>用户停止或关闭程序导致的结束。</td></tr>
           </tbody>
         </table>
+        <p>“警告”表示步骤已经执行完，但返回了配置允许的警告退出码，或者有需要现场确认的信息。它不会结束任务，后续步骤继续；任务最终计为“警告”，不会计为成功。警告详情写在日志的 <code>WARN</code> 行里。</p>
 
         <h3>4.4 步骤类型标识</h3>
         <p>步骤名称下方会显示类型：<span class="tag tag-blue">安装</span> <span class="tag">复制</span> <span class="tag">注册表</span> <span class="tag">服务</span> <span class="tag">网络</span> <span class="tag">电源</span> <span class="tag">自启</span> <span class="tag">延时</span>，命令类步骤显示 <span class="tag tag-blue">EXE</span>、<span class="tag tag-blue">CMD</span> 或 <span class="tag tag-blue">PowerShell</span>。</p>
@@ -844,6 +847,7 @@
           <tbody>
             <tr><td>总任务</td><td>配置里的全部任务数，包含禁用任务。</td></tr>
             <tr><td>成功任务</td><td>所有步骤完成的任务。</td></tr>
+            <tr><td>警告任务</td><td>有步骤返回警告、但任务继续执行到结束的任务；计入“已结束”，不计入成功。</td></tr>
             <tr><td>失败任务</td><td>有步骤失败、提前结束的任务。</td></tr>
             <tr><td>未执行任务</td><td>因停止或取消而没有开始的任务。</td></tr>
             <tr><td>禁用任务</td><td>配置里标记为禁用的任务，不执行、不计进度。</td></tr>
@@ -874,8 +878,8 @@
             <tr><td>日志分析工具</td><td>解压 Jinovision 日志分析工具，并在公共桌面创建快捷方式。</td><td>目标目录已存在时按脚本判断，不需要手工干预。</td></tr>
             <tr><td>ApowerREC</td><td>解压到 <code>C:\Program Files</code>，创建公共桌面快捷方式。</td><td>不设置开机自启。</td></tr>
             <tr><td>Snipaste</td><td>解压到 <code>C:\Program Files</code>，创建公共桌面快捷方式。</td><td>不设置开机自启。</td></tr>
-            <tr><td>MSI Afterburner</td><td>安装 MSI Afterburner，并创建登录时运行的计划任务。</td><td>不包含显卡锁频 Profile；需要锁频时另行配置。</td></tr>
-            <tr><td>Wireshark</td><td>静默安装 Wireshark。</td><td>可能连带安装 Npcap；以安装程序提示和结果为准。</td></tr>
+            <tr><td>MSI Afterburner</td><td>解压 <code>MSIAfterburner-portable.zip</code> 到 <code>C:\Program Files (x86)\MSI Afterburner</code>，创建公共桌面快捷方式，并创建登录时运行的计划任务。</td><td>不包含显卡锁频 Profile；需要锁频时另行配置。</td></tr>
+            <tr><td>Wireshark</td><td>先安装 Npcap 抓包驱动（已安装则跳过），再静默安装 Wireshark。</td><td>Npcap 使用自动向导；被额外对话框拦截时步骤显示“警告”，按日志提示手动安装后重跑。</td></tr>
             <tr><td>Process Explorer</td><td>解压到 <code>C:\Program Files</code>，创建公共桌面快捷方式。</td><td>首次启动会弹许可协议，属正常现象。</td></tr>
             <tr><td>Everything</td><td>静默安装 Everything。</td><td>使用 x86 安装包；按默认目录判断是否已安装。</td></tr>
           </tbody>
@@ -1021,6 +1025,7 @@
           <thead><tr><th>状态</th><th>含义</th><th>你需要做什么</th></tr></thead>
           <tbody>
             <tr><td>成功</td><td>步骤或任务正常完成。</td><td>继续看下一项。</td></tr>
+            <tr><td>警告</td><td>步骤完成但返回了配置允许的警告退出码；任务继续，最终以“警告”结束。</td><td>看日志里的 <code>WARN</code> 行，按提示确认或补做操作。</td></tr>
             <tr><td>失败</td><td>步骤返回失败，或校验/运行条件不满足。</td><td>看失败原因和日志，修正后重跑。</td></tr>
             <tr><td>已满足</td><td>目标已经存在，没有重复执行。</td><td>通常不需要处理；确认是否符合预期。</td></tr>
             <tr><td>未执行</td><td>前序步骤失败、任务被停止或取消。</td><td>确认是否需要重跑。</td></tr>
@@ -1033,14 +1038,15 @@
         <ul class="clean">
           <li><code>0</code>：通常表示成功。</li>
           <li><code>3010</code>、<code>1641</code>：通常表示成功但需要重启；界面会显示“需重启”。</li>
+          <li><code>warnExitCodes</code> 中列出的退出码：记为“警告”，不按失败处理；后续步骤继续。例如 Npcap 安装失败返回 <code>201</code> 时，任务继续，日志提示手动安装。</li>
           <li>其他退出码：按失败处理，除非配置里明确把它列为可接受。</li>
         </ul>
 
         <h3>8.3 报告怎么看</h3>
         <ol class="steps">
-          <li><strong>先看统计卡片</strong><p>失败任务、未执行任务是否为零；禁用任务是否符合预期。</p></li>
-          <li><strong>再看分组结果</strong><p>找到带“×”的分组。</p></li>
-          <li><strong>展开任务结果</strong><p>看哪个步骤失败、失败原因、耗时；需要重启的步骤会有标记。</p></li>
+          <li><strong>先看统计卡片</strong><p>失败任务、未执行任务是否为零；警告任务是否需要处理；禁用任务是否符合预期。</p></li>
+          <li><strong>再看分组结果</strong><p>找到带“×”或“!”的分组。</p></li>
+          <li><strong>展开任务结果</strong><p>看哪个步骤失败或警告、原因和耗时；需要重启的步骤会有标记。</p></li>
           <li><strong>对照日志</strong><p>日志里有更完整的命令输出和错误信息。</p></li>
         </ol>
 
@@ -1070,6 +1076,7 @@
           <li>配置路径和模式（execute / preview）。</li>
           <li>校验错误、警告和预检结果。</li>
           <li>每个步骤的开始、结束、退出码和输出。</li>
+          <li>运行时警告：以 <code>WARN</code> 开头的行，包含警告原因和现场需要补做的操作。</li>
           <li>任务失败原因、未执行步骤和重启提示。</li>
           <li>敏感字段会被脱敏为 <code>***</code>。</li>
         </ul>
@@ -1106,14 +1113,14 @@
         <h3>关闭 Defender 失败</h3>
         <p>先关闭 Windows 安全中心的“篡改保护”；如果安装了火绒、360 等第三方杀毒软件，先退出或卸载，再重试。策略被拦截时任务会失败并提示。</p>
 
-        <h3>Wireshark 安装很慢或弹出 Npcap</h3>
-        <p>Wireshark 可能连带安装 Npcap，安装时间会更长。等待步骤结束；如果弹出交互窗口，按现场要求处理。</p>
+        <h3>Wireshark 的 Npcap 步骤显示“警告”</h3>
+        <p>Npcap 免费版不支持全静默安装，程序会自动操作安装向导。如果被额外对话框拦截或超时，该步骤记为“警告”，Wireshark 仍会继续安装；日志会提示手动运行 <code>data\software\npcap-1.88.exe</code>，按“I Agree → Install → Next → Finish”完成后，重新运行本软件即可。Wireshark 本身安装时间也较长，等待步骤结束即可。</p>
 
         <h3>Process Explorer 首次启动弹协议</h3>
         <p>正常现象，接受许可后即可使用。</p>
 
-        <h3>MSI Afterburner 装完没有锁频</h3>
-        <p>标准配置只安装程序并创建登录自启计划任务，不包含显卡锁频 Profile。需要锁频时由后续配置或人工设置。</p>
+        <h3>MSI Afterburner 解压后没有锁频</h3>
+        <p>标准配置只解压便携包并创建登录自启计划任务，不包含显卡锁频 Profile。需要锁频时由后续配置或人工设置。</p>
 
         <h3>数据库任务启用了，但提示已满足</h3>
         <p>目标机已有 MySQL 服务或默认数据目录，程序按“存在就跳过”处理，不会删除或覆盖现有数据。确认现场是否本来就有数据库。</p>
@@ -1206,7 +1213,7 @@
         <pre class="code">IPCDeployment/
   IPCDeployment.exe          主程序（依赖 DLL 已内嵌）
   使用说明.md               简明使用说明
-  操作手册.pdf              本手册的 PDF 版本（发布包内）
+  IPCDeployment-使用手册.pdf  本手册的 PDF 版本（发布包内）
   XML配置说明.md            XML 配置详细说明
   config/
     config.xml              标准配置（启动默认加载）
@@ -1223,7 +1230,7 @@
     </section>
 
     <footer class="footer">
-      <p>工控机部署工具（IPCDeployment）· 一线操作手册（标准模式）</p>
+      <p>工控机部署工具（IPCDeployment）· IPCDeployment-使用手册（标准模式）</p>
       <p>适用于标准配置包 <code>config/config.xml</code>。界面和任务以实际运行版本为准；本手册不包含截图，发布时转换为 PDF 随包分发。</p>
       <a class="top-link" href="#top">回到顶部 ↑</a>
     </footer>

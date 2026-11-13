@@ -81,12 +81,12 @@ Get-ChildItem -LiteralPath $dataSource -Force | ForEach-Object {
 Copy-Item -LiteralPath (Join-Path $root '使用说明.md') -Destination (Join-Path $publish '使用说明.md') -Force
 Copy-Item -LiteralPath (Join-Path $root 'XML配置说明.md') -Destination (Join-Path $publish 'XML配置说明.md') -Force
 
-# 操作手册以 HTML 维护在仓库，发布包只带生成的 PDF。
+# IPCDeployment-使用手册以 HTML 维护在仓库，发布包只带生成的 PDF。
 $manualPdf = & (Join-Path $PSScriptRoot 'build-manual.ps1') | Select-Object -Last 1
 if (-not $manualPdf -or -not (Test-Path -LiteralPath $manualPdf)) {
-    throw '操作手册 PDF generation failed.'
+    throw 'IPCDeployment-使用手册 PDF generation failed.'
 }
-Copy-Item -LiteralPath $manualPdf -Destination (Join-Path $publish '操作手册.pdf') -Force
+Copy-Item -LiteralPath $manualPdf -Destination (Join-Path $publish 'IPCDeployment-使用手册.pdf') -Force
 
 Copy-Item -LiteralPath $configSource -Destination $publish -Recurse -Force
 

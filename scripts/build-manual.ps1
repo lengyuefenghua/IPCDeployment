@@ -5,14 +5,14 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
-$source = Join-Path $root '操作手册.html'
+$source = Join-Path $root 'IPCDeployment-使用手册.html'
 
 if (-not (Test-Path -LiteralPath $source)) {
     throw ('Manual source was not found: ' + $source)
 }
 
 if (-not $OutputPath) {
-    $OutputPath = Join-Path $root 'build\manual\操作手册.pdf'
+    $OutputPath = Join-Path $root 'build\manual\IPCDeployment-使用手册.pdf'
 }
 $OutputPath = [System.IO.Path]::GetFullPath($OutputPath)
 $outputDirectory = Split-Path -Parent $OutputPath
@@ -27,7 +27,7 @@ $browser = @($edge, $edgeX86, $chrome, $chromeX86) |
     Where-Object { Test-Path -LiteralPath $_ } |
     Select-Object -First 1
 if (-not $browser) {
-    throw 'Microsoft Edge or Google Chrome was not found; it is required to build 操作手册.pdf.'
+    throw 'Microsoft Edge or Google Chrome was not found; it is required to build IPCDeployment-使用手册.pdf.'
 }
 
 if (Test-Path -LiteralPath $OutputPath) {
