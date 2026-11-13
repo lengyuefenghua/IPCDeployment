@@ -1,0 +1,82 @@
+name: release
+
+on:
+  push:
+    tags:
+      - '*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Verify version tag
+        shell: pwsh
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          if ($tag -notmatch '^\d+\.\d+\.\d+$') {
+            throw "Tag '$tag' is not a version tag (expected x.y.z)."
+          }
+          Write-Output "Building version $tag"
+
+      - name: Build
+        shell: pwsh
+        run: dotnet build IPCDeployment.sln -c Release --nologo
+
+      - name: Test
+        shell: pwsh
+        run: dotnet test IPCDeployment.sln -c Release --no-build --nologo
+
+      - name: Build manual PDF
+        shell: pwsh
+        run: ./scripts/build-manual.ps1
+
+      # 远程构建产物不包含 data/ 安装载荷，只用于版本留档和构建验证。
+      - name: Stage build-only package
+        shell: pwsh
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          $stage = Join-Path $PWD 'build\release-no-data'
+          if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
+          New-Item -ItemType Directory -Path $stage -Force | Out-Null
+          Copy-Item -Path 'src\IPCDeployment\bin\Release\net472\*' -Destination $stage -Recurse -Force
+          Copy-Item -LiteralPath 'config' -Destination (Join-Path $stage 'config') -Recurse -Force
+          Copy-Item -LiteralPath 'config-lithium' -Destination (Join-Path $stage 'config-lithium') -Recurse -Force
+          Copy-Item -LiteralPath 'XML配置说明.md' -Destination $stage -Force
+          Copy-Item -LiteralPath 'build\manual\IPCDeployment-使用手册.pdf' -Destination $stage -Force
+          Get-ChildItem -LiteralPath $stage -File -Filter '*.pdb' | Remove-Item -Force
+          Get-ChildItem -LiteralPath $stage -File -Filter '*.dll' | Remove-Item -Force
+
+          $zip = Join-Path $PWD ("dist\IPCDeployment-{0}-win-x64-build.zip" -f $tag)
+          New-Item -ItemType Directory -Path (Split-Path -Parent $zip) -Force | Out-Null
+          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -CompressionLevel Optimal
+          Write-Output "Created build-only package: $zip"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: IPCDeployment-build-${{ github.ref_name }}
+          path: dist/*-build.zip
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: dist/*-build.zip
+          generate_release_notes: true
+          body: |
+            远程构建产物：**不含 data/ 安装载荷，不能直接部署**。
+            可部署的完整包请在发布机上使用 scripts/package-portable.ps1 生成。

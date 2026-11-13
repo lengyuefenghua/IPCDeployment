@@ -26,6 +26,24 @@
   </ItemGroup>
 
   <!--
+    版本号跟随当前 HEAD 的 git tag：发布包只从带 tag 的提交生成，About 和标题栏读同一份
+    ProductVersion，避免 csproj 静态版本与 tag 不一致。没有 tag 时回退 csproj 的 <Version>。
+  -->
+  <Target Name="UseGitTagAsVersion" BeforeTargets="GetAssemblyVersion">
+    <Exec Command="git -c safe.directory=* describe --tags --exact-match HEAD"
+          ConsoleToMSBuild="true"
+          IgnoreExitCode="true"
+          StandardOutputImportance="low"
+          StandardErrorImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="GitTagVersion" />
+      <Output TaskParameter="ExitCode" PropertyName="GitTagVersionExitCode" />
+    </Exec>
+    <PropertyGroup Condition="'$(GitTagVersionExitCode)' == '0' and '$(GitTagVersion)' != ''">
+      <Version>$(GitTagVersion.Trim())</Version>
+    </PropertyGroup>
+  </Target>
+
+  <!--
     把随程序集复制的托管 DLL 内嵌进 exe，运行期由 EmbeddedAssemblyLoader 从资源流加载。
     必须在 AssignTargetPaths 之前加入 EmbeddedResource，否则资源项缺少 Type/WithCulture 元数据，
     csc 不会把它编译进程序集。

@@ -1,48 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Deployment schemaVersion="2.0" mode="execute">
-  <Meta name="下料工位部署" description="真实部署：安装看图、日志分析、录屏、截图与显卡工具，强制重置 MySQL（删除 C:\MySQL、C:\ProgramData\MySQL、C:\Program Files\MySQL），配置电源与关闭 Windows Defender。" />
+  <Meta name="下料工位部署" description="真实部署：安装图数查看器（含看图）、日志分析、JinoMonitor、录屏、截图与显卡工具，强制重置 MySQL（删除 C:\MySQL、C:\ProgramData\MySQL、C:\Program Files\MySQL），配置电源与关闭 Windows Defender。" />
   <Options>
     <LogDirectory>logs</LogDirectory>
   </Options>
   <Groups>
     <Group key="software" name="软件安装">
-      <Task key="image-viewer" name="ImageViewer">
-        <Install id="image-viewer-install" name="安装 ImageViewer"
-                 file="software/ImageViewer-1.2.4-win-x64-setup.exe"
-                 arguments="/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /TASKS=&quot;fileassociations&quot;"
-                 timeoutMinutes="15" successExitCodes="0,3010"
-                 skipIfFileExists="%ProgramFiles%/ImageViewer/ImageViewer.exe" />
-      </Task>
       <Task key="image-data-viewer" name="ImageDataViewer">
-        <Install id="image-data-viewer-install" name="安装 ImageDataViewer"
-                 file="software/ImageDataViewer-1.3.38-win-x64-setup.exe"
-                 arguments="/VERYSILENT /SUPPRESSMSGBOXES /NORESTART"
+        <Install id="image-data-viewer-install" name="安装 ImageDataViewer（含看图组件）"
+                 file="software/ImageDataViewer-1.3.43-win-x64-setup.exe"
+                 arguments="/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /TASKS=&quot;desktopicon&quot; /COMPONENTS=&quot;main,imageviewer&quot;"
                  timeoutMinutes="15" successExitCodes="0,3010"
-                 skipIfFileExists="%ProgramFiles%/ImageDataViewer/ImageDataViewer.App.exe" />
-        <Command id="image-data-viewer-shortcut" name="创建桌面快捷方式"
-                 language="powershell" timeoutMinutes="5" successExitCodes="0">
-          <Code><![CDATA[
-            $exe = 'C:\Program Files\ImageDataViewer\ImageDataViewer.App.exe'
-            if (-not (Test-Path -LiteralPath $exe)) {
-                throw "未找到：$exe"
-            }
-
-            $desktop = [Environment]::GetFolderPath('CommonDesktopDirectory')
-            $lnk = Join-Path $desktop 'ImageDataViewer.lnk'
-            $shell = New-Object -ComObject WScript.Shell
-            $shortcut = $shell.CreateShortcut($lnk)
-            $shortcut.TargetPath = $exe
-            $shortcut.WorkingDirectory = 'C:\Program Files\ImageDataViewer'
-            $shortcut.Description = '图像数据查看器'
-            $shortcut.Save()
-            if (-not (Test-Path -LiteralPath $lnk)) {
-                throw "桌面快捷方式创建失败：$lnk"
-            }
-
-            Write-Output "ImageDataViewer 快捷方式：$lnk"
-          ]]></Code>
-        </Command>
-
+                 skipIfFileExists="%ProgramFiles%/ImageDataViewer/ImageViewer/ImageViewer.exe" />
       </Task>
       <Task key="image-data-viewer-rules" name="导入下料工位规则">
         <Command id="image-data-viewer-rules-import" name="导入下料工位规则包"
@@ -91,43 +60,18 @@
         </Command>
       </Task>
       <Task key="log-analyzer" name="日志分析工具">
-        <Command id="log-analyzer-extract" name="解压并创建桌面快捷方式"
-                 language="powershell" timeoutMinutes="10" successExitCodes="0">
-          <Code><![CDATA[
-            $target = 'C:\Program Files\JinovisionLogAnalyzer'
-            $zip = Join-Path $env:IPCDEPLOYMENT_DATA_ROOT 'software\JinovisionLogAnalyzer-1.4.1-win-x64.zip'
-            if (-not (Test-Path -LiteralPath $zip)) {
-                throw "未找到日志分析工具安装包：$zip"
-            }
-            if (Test-Path -LiteralPath $target) {
-                Write-Output "清理旧目录：$target"
-                Remove-Item -LiteralPath $target -Recurse -Force
-            }
-            New-Item -ItemType Directory -Force -Path $target | Out-Null
-            Write-Output "解压日志分析工具到：$target"
-            Expand-Archive -LiteralPath $zip -DestinationPath $target -Force
-
-            $exe = Join-Path $target 'JinovisionLogAnalyzer.Wpf.exe'
-            if (-not (Test-Path -LiteralPath $exe)) {
-                throw "解压后未找到：$exe"
-            }
-
-            $desktop = [Environment]::GetFolderPath('CommonDesktopDirectory')
-            $lnk = Join-Path $desktop 'Jinovision 日志分析工具.lnk'
-            $shell = New-Object -ComObject WScript.Shell
-            $shortcut = $shell.CreateShortcut($lnk)
-            $shortcut.TargetPath = $exe
-            $shortcut.WorkingDirectory = $target
-            $shortcut.Description = 'Jinovision 日志分析工具'
-            $shortcut.Save()
-            if (-not (Test-Path -LiteralPath $lnk)) {
-                throw "桌面快捷方式创建失败：$lnk"
-            }
-
-            Write-Output "日志分析工具安装完成：$exe"
-            Write-Output "桌面快捷方式：$lnk"
-          ]]></Code>
-        </Command>
+        <Install id="log-analyzer-install" name="安装日志分析工具"
+                 file="software/JinovisionLogAnalyzer-1.8.0-win-x64-setup.exe"
+                 arguments="/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /TASKS=&quot;desktopicon&quot;"
+                 timeoutMinutes="15" successExitCodes="0,3010"
+                 skipIfFileExists="%ProgramFiles%/JinovisionLogAnalyzer/JinovisionLogAnalyzer.exe" />
+      </Task>
+      <Task key="jino-monitor" name="JinoMonitor">
+        <Install id="jino-monitor-install" name="安装 JinoMonitor"
+                 file="software/JinoMonitor-1.2.0-win-x64-setup.exe"
+                 arguments="/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /TASKS=&quot;desktopicon&quot;"
+                 timeoutMinutes="15" successExitCodes="0,3010"
+                 skipIfFileExists="%ProgramFiles%/JinoMonitor/JinoMonitor.exe" />
       </Task>
       <Task key="apowerrec" name="ApowerREC">
         <Command id="apowerrec-install" name="解压 ApowerREC 并创建桌面快捷方式"

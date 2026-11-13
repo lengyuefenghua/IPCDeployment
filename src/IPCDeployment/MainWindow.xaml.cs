@@ -205,6 +205,52 @@ namespace IPCDeployment
             }
         }
 
+        private async void HelpButton_Click(object sender, RoutedEventArgs eventArgs)
+        {
+            // 使用手册以 PDF 随包发布；帮助按钮直接调用系统默认阅读器打开。
+            var manualPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "IPCDeployment-使用手册.pdf");
+            if (!File.Exists(manualPath))
+            {
+                await new Wpf.Ui.Controls.MessageBox
+                {
+                    Owner = this,
+                    Title = "未找到使用手册",
+                    Content = "未找到 IPCDeployment-使用手册.pdf。\n\n预期位置：\n" + manualPath +
+                        "\n\n请确认发布包已完整解压；调试包请先运行 scripts/build-debug.ps1。",
+                    PrimaryButtonText = "确定",
+                    IsCloseButtonEnabled = false,
+                    PrimaryButtonAppearance = ControlAppearance.Secondary
+                }.ShowDialogAsync(false, CancellationToken.None);
+                return;
+            }
+
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = manualPath,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception exception)
+            {
+                await new Wpf.Ui.Controls.MessageBox
+                {
+                    Owner = this,
+                    Title = "打不开使用手册",
+                    Content = exception.Message,
+                    PrimaryButtonText = "确定",
+                    IsCloseButtonEnabled = false,
+                    PrimaryButtonAppearance = ControlAppearance.Danger
+                }.ShowDialogAsync(false, CancellationToken.None);
+            }
+        }
+
+        private void AboutButton_Click(object sender, RoutedEventArgs eventArgs)
+        {
+            new AboutWindow { Owner = this }.ShowDialog();
+        }
+
         private void ExitButton_Click(object sender, RoutedEventArgs e)
         {
             Close();

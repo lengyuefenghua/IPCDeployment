@@ -36,8 +36,15 @@ Get-ChildItem -LiteralPath $dataSource -Force | ForEach-Object {
     Copy-Item -LiteralPath $_.FullName -Destination $dataTarget -Recurse -Force
 }
 
-Copy-Item -LiteralPath (Join-Path $root '使用说明.md') -Destination (Join-Path $output '使用说明.md') -Force
 Copy-Item -LiteralPath (Join-Path $root 'XML配置说明.md') -Destination (Join-Path $output 'XML配置说明.md') -Force
+
+# 调试包也带使用手册，保证主窗口标题栏的帮助按钮可用。
+$manualPdf = & (Join-Path $PSScriptRoot 'build-manual.ps1') | Select-Object -Last 1
+if (-not $manualPdf -or -not (Test-Path -LiteralPath $manualPdf)) {
+    throw 'IPCDeployment-使用手册 PDF generation failed.'
+}
+Copy-Item -LiteralPath $manualPdf -Destination (Join-Path $output 'IPCDeployment-使用手册.pdf') -Force
+
 Copy-Item -LiteralPath $configSource -Destination $output -Recurse -Force
 
 Write-Output ('Created development build: ' + $output)

@@ -6,13 +6,13 @@
   </Options>
   <Groups>
     <Group key="software" name="软件安装">
-      <Task key="image-viewer" name="ImageViewer">
-        <Install id="image-viewer-install" name="安装 ImageViewer"
-                 file="software/ImageViewer-1.2.4-win-x64-setup.exe"
-                 arguments="/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /TASKS=&quot;fileassociations&quot;"
+      <Task key="image-data-viewer" name="ImageDataViewer">
+        <Install id="image-data-viewer-install" name="安装 ImageDataViewer（含看图组件）"
+                 file="software/ImageDataViewer-1.3.43-win-x64-setup.exe"
+                 arguments="/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /TASKS=&quot;desktopicon&quot; /COMPONENTS=&quot;main,imageviewer&quot;"
                  timeoutMinutes="15"
                  successExitCodes="0,3010"
-                 skipIfFileExists="%ProgramFiles%/ImageViewer/ImageViewer.exe" />
+                 skipIfFileExists="%ProgramFiles%/ImageDataViewer/ImageViewer/ImageViewer.exe" />
       </Task>
       <Task key="wait-after-install" name="安装后等待">
         <Delay id="wait-after-install" name="等待安装稳定" seconds="3" />

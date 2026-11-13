@@ -183,6 +183,28 @@
       <ui:TitleBar.Icon>
         <ui:ImageIcon Source="pack://application:,,,/logo.ico" Width="16" Height="16" Margin="0,0,8,0" />
       </ui:TitleBar.Icon>
+      <ui:TitleBar.TrailingContent>
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Top" Height="30" Margin="0,0,4,0">
+          <ui:Button Appearance="Transparent" Background="Transparent" BorderBrush="Transparent" BorderThickness="0"
+                     MouseOverBorderBrush="Transparent" PressedBorderBrush="Transparent"
+                     MouseOverBackground="#12000000" PressedBackground="#20000000"
+                     Foreground="#172033" Padding="8,0" Height="30" ToolTip="打开使用手册（PDF）" Click="HelpButton_Click">
+            <StackPanel Orientation="Horizontal">
+              <ui:SymbolIcon Symbol="Question24" FontSize="16" Margin="0,0,6,0" VerticalAlignment="Center" />
+              <ui:TextBlock Text="帮助" FontSize="12" VerticalAlignment="Center" />
+            </StackPanel>
+          </ui:Button>
+          <ui:Button Appearance="Transparent" Background="Transparent" BorderBrush="Transparent" BorderThickness="0"
+                     MouseOverBorderBrush="Transparent" PressedBorderBrush="Transparent"
+                     MouseOverBackground="#12000000" PressedBackground="#20000000"
+                     Foreground="#172033" Padding="8,0" Height="30" Margin="2,0,0,0" ToolTip="关于本软件" Click="AboutButton_Click">
+            <StackPanel Orientation="Horizontal">
+              <ui:SymbolIcon Symbol="Alert24" FontSize="16" Margin="0,0,6,0" VerticalAlignment="Center" />
+              <ui:TextBlock Text="关于" FontSize="12" VerticalAlignment="Center" />
+            </StackPanel>
+          </ui:Button>
+        </StackPanel>
+      </ui:TitleBar.TrailingContent>
     </ui:TitleBar>
 
     <Grid Grid.Row="1">

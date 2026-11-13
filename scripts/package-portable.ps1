@@ -5,26 +5,20 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
-$projectPath = Join-Path $root 'src\IPCDeployment\IPCDeployment.csproj'
 $build = Join-Path $root ("src\IPCDeployment\bin\{0}\net472" -f $Configuration)
 $dataSource = Join-Path $root 'data'
 $configSource = Join-Path $root 'config'
 
-# 版本号唯一源是 csproj 的 <Version>；发布包只允许从同版本 tag 上生成，保证产物可追溯。
-[xml]$project = Get-Content -LiteralPath $projectPath
-$versionNode = $project.SelectSingleNode('/Project/PropertyGroup/Version')
-$version = if ($versionNode) { $versionNode.InnerText.Trim() } else { '' }
-if (-not $version) {
-    throw ('Version was not found in ' + $projectPath)
+# 版本号唯一源是当前 HEAD 的 git tag；构建时 csproj 也读取同一 tag，发布包只允许从 tag 生成。
+$tagsAtHead = @(& git -c safe.directory=* -C $root tag --points-at HEAD 2>$null)
+$versionTags = @($tagsAtHead | Where-Object { $_ -match '^\d+\.\d+\.\d+$' })
+if ($versionTags.Count -eq 0) {
+    throw 'Current commit has no version tag. Tag it with a version such as 1.0.0 before packaging.'
 }
-
-$tagsAtHead = @(& git -C $root tag --points-at HEAD 2>$null)
-if ($tagsAtHead.Count -eq 0) {
-    throw ('Current commit has no tag. Tag it with ' + $version + ' before packaging.')
+if ($versionTags.Count -gt 1) {
+    throw ('Current commit has multiple version tags (' + ($versionTags -join ', ') + '); keep exactly one.')
 }
-if ($tagsAtHead -notcontains $version) {
-    throw ('Current commit tags (' + ($tagsAtHead -join ', ') + ') do not include csproj version "' + $version + '".')
-}
+$version = $versionTags[0]
 
 $packageName = 'IPCDeployment-{0}-win-x64' -f $version
 $publish = Join-Path $root ('dist\{0}' -f $packageName)
@@ -33,8 +27,22 @@ $lithiumPackageName = 'IPCDeployment-{0}-lithium-config' -f $version
 $lithiumPublish = Join-Path $root ('dist\{0}' -f $lithiumPackageName)
 $lithiumZip = Join-Path $root ('dist\{0}.zip' -f $lithiumPackageName)
 
+# 发布前确认标准配置里的自研软件安装包不落后于源仓库；有新版先同步并提交。
+& (Join-Path $PSScriptRoot 'check-source-packages.ps1') -Configuration $Configuration
+if ($LASTEXITCODE -ne 0) {
+    throw 'Source packages are newer than the configured versions. Run check-source-packages.ps1 -Apply, commit, then package again.'
+}
+
 if (-not (Test-Path -LiteralPath $build)) {
     throw ('Build output was not found: ' + $build + '. Run dotnet build IPCDeployment.sln --configuration ' + $Configuration + '.')
+}
+$builtExe = Join-Path $build 'IPCDeployment.exe'
+if (-not (Test-Path -LiteralPath $builtExe)) {
+    throw ('Built executable was not found: ' + $builtExe)
+}
+$builtVersion = [Diagnostics.FileVersionInfo]::GetVersionInfo($builtExe).ProductVersion
+if ($builtVersion -ne $version) {
+    throw ('Built ProductVersion "' + $builtVersion + '" does not match tag "' + $version + '". Rebuild after tagging.')
 }
 if (-not (Test-Path -LiteralPath $dataSource)) {
     throw ('Data directory was not found: ' + $dataSource)
@@ -78,7 +86,6 @@ Get-ChildItem -LiteralPath $dataSource -Force | ForEach-Object {
     Copy-Item -LiteralPath $_.FullName -Destination $dataTarget -Recurse -Force
 }
 
-Copy-Item -LiteralPath (Join-Path $root '使用说明.md') -Destination (Join-Path $publish '使用说明.md') -Force
 Copy-Item -LiteralPath (Join-Path $root 'XML配置说明.md') -Destination (Join-Path $publish 'XML配置说明.md') -Force
 
 # IPCDeployment-使用手册以 HTML 维护在仓库，发布包只带生成的 PDF。

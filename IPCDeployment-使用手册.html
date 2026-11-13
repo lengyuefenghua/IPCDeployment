@@ -675,6 +675,7 @@
       <div class="card">
         <h3>2.1 整体布局</h3>
         <p>主窗口分为左侧导航、中间内容区、底部日志区和最下方状态栏。</p>
+        <p>标题栏右侧有「? 帮助」和「! 关于」两个按钮，位于最小化按钮左边。帮助按钮打开本手册的 PDF 版本，关于按钮显示软件版本；发布包缺少 PDF 时帮助按钮会提示预期路径。</p>
         <pre class="diagram">┌──────────────┬────────────────────────────────────────────┐
 │ 左侧导航      │ 内容区                                      │
 │              │                                            │
@@ -753,7 +754,7 @@
         <ol class="steps">
           <li>
             <strong>解压发布包</strong>
-            <p>把 <code>IPCDeployment-1.0.0-win-x64.zip</code> 解压到可写目录。确认目录里有 <code>IPCDeployment.exe</code>、<code>config\</code>、<code>data\</code>、<code>使用说明.md</code>、<code>XML配置说明.md</code>，以及发布时生成的 <code>IPCDeployment-使用手册.pdf</code>。</p>
+            <p>把 <code>IPCDeployment-1.0.0-win-x64.zip</code> 解压到可写目录。确认目录里有 <code>IPCDeployment.exe</code>、<code>config\</code>、<code>data\</code>、<code>XML配置说明.md</code>，以及发布时生成的 <code>IPCDeployment-使用手册.pdf</code>。</p>
           </li>
           <li>
             <strong>双击启动并确认 UAC</strong>
@@ -873,9 +874,9 @@
         <table>
           <thead><tr><th>任务</th><th>做什么</th><th>现场注意</th></tr></thead>
           <tbody>
-            <tr><td>ImageViewer</td><td>静默安装 ImageViewer。</td><td>默认安装目录已有 <code>ImageViewer.exe</code> 时跳过。</td></tr>
-            <tr><td>ImageDataViewer</td><td>静默安装 ImageDataViewer，并在公共桌面创建快捷方式。</td><td>默认安装目录已有程序时跳过安装。</td></tr>
-            <tr><td>日志分析工具</td><td>解压 Jinovision 日志分析工具，并在公共桌面创建快捷方式。</td><td>目标目录已存在时按脚本判断，不需要手工干预。</td></tr>
+            <tr><td>ImageDataViewer</td><td>静默安装 ImageDataViewer，安装包已包含 ImageViewer 看图组件，并创建公共桌面快捷方式。</td><td>默认安装目录已有看图组件时跳过；旧版本会自动升级。</td></tr>
+            <tr><td>日志分析工具</td><td>静默安装 Jinovision 日志分析工具，并创建公共桌面快捷方式。</td><td>安装到 <code>C:\Program Files\JinovisionLogAnalyzer</code>；已安装时跳过。</td></tr>
+            <tr><td>JinoMonitor</td><td>静默安装 JinoMonitor，并创建公共桌面快捷方式。</td><td>安装到 <code>C:\Program Files\JinoMonitor</code>；不设置开机自启；已安装时跳过。</td></tr>
             <tr><td>ApowerREC</td><td>解压到 <code>C:\Program Files</code>，创建公共桌面快捷方式。</td><td>不设置开机自启。</td></tr>
             <tr><td>Snipaste</td><td>解压到 <code>C:\Program Files</code>，创建公共桌面快捷方式。</td><td>不设置开机自启。</td></tr>
             <tr><td>MSI Afterburner</td><td>解压 <code>MSIAfterburner-portable.zip</code> 到 <code>C:\Program Files (x86)\MSI Afterburner</code>，创建公共桌面快捷方式，并创建登录时运行的计划任务。</td><td>不包含显卡锁频 Profile；需要锁频时另行配置。</td></tr>
@@ -902,7 +903,7 @@
 
         <h3>5.4 标准配置不包含的内容</h3>
         <ul class="clean">
-          <li>ImageViewer / ImageDataViewer 的规则包导入。</li>
+          <li>ImageDataViewer 的规则包导入。</li>
           <li>HeidiSQL 数据库客户端。</li>
           <li>JinoVision 共享库和 MySqlConnector.dll 复制。</li>
           <li>业务数据库（如 inovance、bmian）的创建。</li>
@@ -1212,7 +1213,6 @@
         <h3>13.3 程序目录结构</h3>
         <pre class="code">IPCDeployment/
   IPCDeployment.exe          主程序（依赖 DLL 已内嵌）
-  使用说明.md               简明使用说明
   IPCDeployment-使用手册.pdf  本手册的 PDF 版本（发布包内）
   XML配置说明.md            XML 配置详细说明
   config/
