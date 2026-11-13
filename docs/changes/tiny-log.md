@@ -47,3 +47,8 @@
 
 - 改动：删除 `data/commands/{.keep,sample.cmd,sample.ps1}`、`data/files/{sample.txt,sample-guide.txt}`（`data/` 被 gitignore，仅影响本地与打包产物）；`config/config.sample.xml` 删掉引用这些文件的三个任务与「自定义命令」组，两处 Copy 示例源改为 `files/MySqlConnector.dll`。
 - 验证：`dotnet test -c Debug` 78 通过（加载器会在解析期校验引用文件，示例配置因此必须同步）；`package-portable.ps1` 重新出包，`dist` 内无 sample 文件。
+
+## 2026-11-13 标准模式一线操作手册
+
+- 改动：新增根目录 `操作手册.html`（单文件离线，仅覆盖标准配置 `config/config.xml`）；新增 `scripts/build-manual.ps1` 用本机 Edge/Chrome 无头模式生成 PDF；`scripts/package-portable.ps1` 在标准包内增加 `操作手册.pdf`，HTML 不随包。
+- 验证：`build-manual.ps1` 生成 767468 字节 PDF（文件头 `%PDF`）；HTML 内部锚点 15 个全部可达、无外部 http(s) 引用；两个 PowerShell 脚本语法解析 0 错误。

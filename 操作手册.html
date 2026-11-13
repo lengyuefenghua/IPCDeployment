@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>工控机部署工具 · 一线操作手册（标准模式）</title>
+<style>
+  :root {
+    --ink: #172033;
+    --ink-2: #354258;
+    --muted: #637189;
+    --muted-2: #8492a5;
+    --line: #e3e9f2;
+    --bg: #f6f8fc;
+    --card: #ffffff;
+    --blue: #2563eb;
+    --blue-soft: #eff5ff;
+    --green: #15803d;
+    --green-soft: #f0fdf4;
+    --amber: #b45309;
+    --amber-soft: #fffbeb;
+    --red: #b91c1c;
+    --red-soft: #fef2f2;
+    --radius: 14px;
+    --shadow: 0 1px 2px rgba(23, 32, 51, .04), 0 8px 24px rgba(23, 32, 51, .05);
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    color: var(--ink);
+    background: var(--bg);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", "Noto Sans SC", sans-serif;
+    font-size: 15px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--blue); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .skip-link {
+    position: absolute;
+    left: -9999px;
+    top: 12px;
+    z-index: 999;
+    padding: 10px 14px;
+    color: #fff;
+    background: var(--blue);
+    border-radius: 8px;
+  }
+  .skip-link:focus { left: 12px; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 286px minmax(0, 1fr);
+    max-width: 1400px;
+    margin: 0 auto;
+    min-height: 100vh;
+  }
+
+  .sidebar {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow: auto;
+    padding: 28px 20px 40px;
+    border-right: 1px solid var(--line);
+    background: #fbfcfe;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: .01em;
+  }
+
+  .brand-mark {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    color: #fff;
+    background: linear-gradient(145deg, #3b82f6, #1d4ed8);
+    border-radius: 9px;
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .brand-sub {
+    margin: 0 0 18px 40px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .search {
+    position: relative;
+    margin-bottom: 18px;
+  }
+
+  .search input {
+    width: 100%;
+    padding: 9px 12px;
+    color: var(--ink);
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    font: inherit;
+    font-size: 13px;
+    outline: none;
+  }
+  .search input:focus {
+    border-color: #93b4f7;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
+  }
+
+  .search-hint {
+    min-height: 18px;
+    margin: 6px 2px 0;
+    color: var(--muted-2);
+    font-size: 11px;
+  }
+
+  .nav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .nav a {
+    display: block;
+    padding: 7px 10px;
+    color: var(--ink-2);
+    border-radius: 8px;
+    font-size: 13px;
+    line-height: 1.45;
+    text-decoration: none;
+  }
+  .nav a:hover { background: #eef4ff; color: #1d4ed8; }
+  .nav a.active {
+    color: #1d4ed8;
+    background: var(--blue-soft);
+    font-weight: 600;
+  }
+
+  .nav .nav-sub {
+    display: block;
+    margin-left: 22px;
+    padding: 4px 8px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .sidebar-foot {
+    margin-top: 26px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    color: var(--muted-2);
+    font-size: 11px;
+    line-height: 1.7;
+  }
+
+  main {
+    min-width: 0;
+    padding: 40px 52px 80px;
+  }
+
+  .hero {
+    padding: 34px 36px 30px;
+    margin-bottom: 30px;
+    background: radial-gradient(circle at 92% 10%, rgba(37, 99, 235, .13), transparent 36%),
+                linear-gradient(135deg, #ffffff, #f4f8ff);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    box-shadow: var(--shadow);
+  }
+
+  .eyebrow {
+    margin: 0 0 8px;
+    color: var(--blue);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+  }
+
+  .hero h1 {
+    margin: 0;
+    font-size: clamp(28px, 4vw, 42px);
+    line-height: 1.2;
+    letter-spacing: -.02em;
+  }
+
+  .hero h1 span {
+    color: var(--blue);
+  }
+
+  .lead {
+    max-width: 760px;
+    margin: 14px 0 0;
+    color: var(--muted);
+    font-size: 15px;
+  }
+
+  .hero-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 20px;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    color: var(--ink-2);
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  .badge-blue { color: #1d4ed8; background: var(--blue-soft); border-color: #d7e5ff; }
+  .badge-amber { color: var(--amber); background: var(--amber-soft); border-color: #fde4b3; }
+  .badge-green { color: var(--green); background: var(--green-soft); border-color: #bbf7d0; }
+
+  .quick {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 24px;
+  }
+
+  .quick a {
+    padding: 12px 14px;
+    color: var(--ink-2);
+    background: rgba(255, 255, 255, .8);
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    font-size: 13px;
+    text-decoration: none;
+    transition: transform .15s ease, border-color .15s ease;
+  }
+  .quick a:hover {
+    border-color: #b9d0fb;
+    transform: translateY(-1px);
+    text-decoration: none;
+  }
+  .quick b { display: block; color: var(--ink); font-size: 14px; }
+  .quick small { color: var(--muted); font-size: 12px; }
+
+  section {
+    margin: 0 0 30px;
+    scroll-margin-top: 22px;
+  }
+
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin: 0 0 14px;
+  }
+
+  .section-head h2 {
+    margin: 0;
+    font-size: 23px;
+    line-height: 1.3;
+  }
+
+  .section-no {
+    color: var(--blue);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .08em;
+  }
+
+  h3 {
+    margin: 24px 0 10px;
+    font-size: 17px;
+    line-height: 1.4;
+  }
+
+  h4 {
+    margin: 18px 0 8px;
+    color: var(--ink-2);
+    font-size: 15px;
+  }
+
+  p { margin: 8px 0; }
+
+  .card {
+    padding: 22px 24px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+
+  .card + .card { margin-top: 12px; }
+
+  .note, .warn, .danger, .ok {
+    padding: 14px 16px 14px 18px;
+    margin: 14px 0;
+    border-left: 4px solid;
+    border-radius: 0 10px 10px 0;
+    font-size: 14px;
+  }
+  .note { color: #1e40af; background: var(--blue-soft); border-color: var(--blue); }
+  .ok { color: #166534; background: var(--green-soft); border-color: var(--green); }
+  .warn { color: #92400e; background: var(--amber-soft); border-color: #d97706; }
+  .danger { color: #991b1b; background: var(--red-soft); border-color: var(--red); }
+
+  .note b, .warn b, .danger b, .ok b { font-weight: 700; }
+
+  ol.steps {
+    counter-reset: step;
+    margin: 12px 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  ol.steps > li {
+    position: relative;
+    padding: 0 0 18px 46px;
+  }
+
+  ol.steps > li::before {
+    counter-increment: step;
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: 1px;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    color: #fff;
+    background: var(--blue);
+    border-radius: 50%;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  ol.steps > li::after {
+    content: "";
+    position: absolute;
+    left: 14px;
+    top: 36px;
+    bottom: 4px;
+    width: 2px;
+    background: #dbe7ff;
+  }
+
+  ol.steps > li:last-child::after { display: none; }
+
+  ol.steps strong { display: block; color: var(--ink); font-size: 15px; }
+  ol.steps p { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+
+  ul.clean {
+    margin: 8px 0;
+    padding-left: 20px;
+  }
+  ul.clean li { margin: 5px 0; }
+
+  table {
+    width: 100%;
+    margin: 12px 0;
+    border-collapse: separate;
+    border-spacing: 0;
+    overflow: hidden;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    font-size: 13.5px;
+  }
+
+  th, td {
+    padding: 9px 12px;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid var(--line);
+  }
+
+  th {
+    color: var(--ink-2);
+    background: #f8fafd;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  tr:last-child td { border-bottom: 0; }
+
+  .status-dot {
+    display: inline-block;
+    min-width: 18px;
+    font-weight: 700;
+    text-align: center;
+  }
+  .dot-wait { color: var(--muted-2); }
+  .dot-run { color: var(--blue); }
+  .dot-ok { color: var(--green); }
+  .dot-fail { color: #dc2626; }
+  .dot-skip { color: var(--muted); }
+
+  pre.diagram {
+    margin: 14px 0;
+    padding: 16px 18px;
+    overflow: auto;
+    color: #dbe7ff;
+    background: #172033;
+    border-radius: 11px;
+    font-family: "Cascadia Mono", Consolas, "Microsoft YaHei", monospace;
+    font-size: 12px;
+    line-height: 1.55;
+    white-space: pre;
+  }
+
+  code {
+    padding: 1px 5px;
+    color: #1e3a8a;
+    background: #eff4ff;
+    border-radius: 5px;
+    font-family: "Cascadia Mono", Consolas, monospace;
+    font-size: .92em;
+  }
+
+  pre.code {
+    margin: 10px 0;
+    padding: 13px 15px;
+    overflow: auto;
+    color: #e2e8f0;
+    background: #172033;
+    border-radius: 10px;
+    font-family: "Cascadia Mono", Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.6;
+  }
+
+  .kbd {
+    display: inline-block;
+    min-width: 22px;
+    padding: 1px 6px;
+    color: var(--ink-2);
+    background: #fff;
+    border: 1px solid #cbd5e1;
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    font-family: "Cascadia Mono", Consolas, monospace;
+    font-size: 11px;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .mini {
+    padding: 15px 16px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 11px;
+  }
+  .mini h4 { margin: 0 0 6px; }
+  .mini p { margin: 0; color: var(--muted); font-size: 13px; }
+
+  .tag {
+    display: inline-block;
+    padding: 1px 7px;
+    color: var(--muted);
+    background: #f1f5f9;
+    border-radius: 5px;
+    font-size: 11.5px;
+    white-space: nowrap;
+  }
+  .tag-blue { color: #1d4ed8; background: #e8f0ff; }
+  .tag-green { color: #166534; background: #e9f9ef; }
+  .tag-amber { color: #92400e; background: #fef3c7; }
+  .tag-red { color: #991b1b; background: #fee2e2; }
+
+  .faq h3 {
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+    font-size: 15.5px;
+  }
+  .faq h3:first-of-type { border-top: 0; padding-top: 0; }
+  .faq p { color: var(--muted); font-size: 14px; }
+
+  .footer {
+    margin-top: 46px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+    color: var(--muted-2);
+    font-size: 12px;
+    line-height: 1.8;
+  }
+
+  .top-link {
+    display: inline-block;
+    margin-top: 10px;
+    font-size: 12px;
+  }
+
+  @media (max-width: 1000px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar {
+      position: static;
+      height: auto;
+      padding: 20px 22px 8px;
+      border-right: 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .nav {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 2px 8px;
+    }
+    .nav .nav-sub { display: none; }
+    .sidebar-foot { display: none; }
+    main { padding: 24px 22px 60px; }
+    .hero { padding: 26px 22px; }
+    .quick, .grid-2 { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 560px) {
+    .nav { grid-template-columns: 1fr; }
+    table { display: block; overflow-x: auto; }
+    th { white-space: normal; }
+  }
+
+  @media print {
+    @page { size: A4; margin: 15mm 14mm; }
+    body { background: #fff; font-size: 10.5pt; }
+    .layout { display: block; max-width: none; }
+    .sidebar, .search, .quick, .top-link, .skip-link { display: none !important; }
+    main { padding: 0; }
+    .hero {
+      padding: 18px 20px;
+      border-radius: 12px;
+      box-shadow: none;
+      background: #fff;
+    }
+    .hero h1 { font-size: 26pt; }
+    .card, .note, .warn, .danger, .ok, .mini {
+      box-shadow: none;
+      break-inside: avoid;
+    }
+    table { break-inside: auto; }
+    tr { break-inside: avoid; }
+    pre { break-inside: auto; }
+    section { margin-bottom: 18px; }
+    h2, h3, h4 { break-after: avoid; }
+    a { color: var(--ink); text-decoration: none; }
+    .badge { border-color: #cbd5e1; }
+  }
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main">跳到正文</a>
+
+<div class="layout">
+  <aside class="sidebar" aria-label="手册目录">
+    <div class="brand"><span class="brand-mark">IP</span><span>工控机部署工具</span></div>
+    <p class="brand-sub">一线操作手册 · 标准模式</p>
+
+    <div class="search">
+      <input id="navSearch" type="search" placeholder="搜索目录…" autocomplete="off" aria-label="搜索目录">
+      <div class="search-hint" id="navSearchHint">输入章节关键词快速定位</div>
+    </div>
+
+    <nav>
+      <ul class="nav" id="navList">
+        <li><a href="#before">一、使用前须知</a></li>
+        <li><a href="#ui">二、界面导览</a></li>
+        <li><a href="#flow">三、标准操作流程</a></li>
+        <li><a href="#pages">四、页面与控件详解</a></li>
+        <li><a href="#standard">五、标准配置包含什么</a></li>
+        <li><a href="#database">六、禁用任务与 MySQL</a></li>
+        <li><a href="#stop">七、停止、关闭与异常</a></li>
+        <li><a href="#result">八、结果判定与报告</a></li>
+        <li><a href="#logs">九、日志与反馈</a></li>
+        <li><a href="#faq">十、常见问题</a></li>
+        <li><a href="#safety">十一、安全红线</a></li>
+        <li><a href="#glossary">十二、术语表</a></li>
+        <li><a href="#appendix">十三、附录</a></li>
+      </ul>
+    </nav>
+
+    <div class="sidebar-foot">
+      适用于标准配置包（<code>config/config.xml</code>）。<br>
+      界面以实际运行版本为准；本手册不含截图。
+    </div>
+  </aside>
+
+  <main id="main">
+    <header class="hero" id="top">
+      <p class="eyebrow">IPCDeployment · 标准模式</p>
+      <h1>工控机部署工具<br><span>一线操作手册</span></h1>
+      <p class="lead">
+        本手册面向现场操作人员，只说明标准配置包的使用方法：如何选择配置、校验、开始部署、观察进度、停止任务、判断结果和查看日志。
+        不展开 XML 编写细节，也不涉及模切、下料、卷绕等独立配置包。
+      </p>
+      <div class="hero-meta">
+        <span class="badge badge-blue">标准配置 config.xml</span>
+        <span class="badge">Windows 10 / 11 x64</span>
+        <span class="badge">.NET Framework 4.7.2+</span>
+        <span class="badge badge-amber">需要管理员权限</span>
+      </div>
+
+      <div class="quick">
+        <a href="#flow"><b>第一次使用</b><small>按顺序走完 9 个步骤</small></a>
+        <a href="#database"><b>数据库任务</b><small>默认禁用，启用前先看这一节</small></a>
+        <a href="#stop"><b>要中途停止</b><small>先看停止与关闭的后果</small></a>
+      </div>
+    </header>
+
+    <section id="before">
+      <div class="section-head"><span class="section-no">01</span><h2>使用前须知</h2></div>
+
+      <div class="card">
+        <h3>1.1 本手册的适用范围</h3>
+        <p>本手册只适用于<strong>标准配置包</strong>：程序目录 <code>config/</code> 下随包提供 <code>config.xml</code>，启动后默认加载。</p>
+        <ul class="clean">
+          <li>标准配置是通用基线，不绑定具体工位。</li>
+          <li>模切、下料、卷绕等独立配置包不在本手册范围内；如果现场另外提供了这些配置，请以随附说明为准。</li>
+          <li>界面文字、任务数量以实际运行版本为准；本手册用任务名和区域名描述，不依赖截图。</li>
+        </ul>
+
+        <h3>1.2 系统要求</h3>
+        <ul class="clean">
+          <li>Windows 10 或 Windows 11，64 位系统。</li>
+          <li>.NET Framework 4.7.2 或更高版本。</li>
+          <li>目标机需要能够解压安装包、写入程序目录和系统目录。</li>
+        </ul>
+
+        <h3>1.3 权限与运行位置</h3>
+        <div class="warn">
+          <b>必须以管理员身份运行。</b>程序启动时会触发 Windows UAC；如果取消，程序可以打开，但无法执行部署。
+        </div>
+        <ul class="clean">
+          <li>把发布包解压到<strong>可写目录</strong>，例如 <code>D:\IPCDeployment</code>。</li>
+          <li>不要直接从只读目录、网络只读共享或压缩包预览窗口里运行。</li>
+          <li>程序运行期间不要移动或删除程序目录。</li>
+        </ul>
+
+        <h3>1.4 执行会修改本机，且没有自动回滚</h3>
+        <p>部署会安装软件、写注册表、调整电源和系统策略，可能还会安装数据库。程序<strong>不提供自动回滚、系统还原或自动重启</strong>。执行前请确认：</p>
+        <ul class="clean">
+          <li>这是正确的目标机，不是办公机或临时测试机。</li>
+          <li>任务摘要里的分组、任务和步骤符合预期。</li>
+          <li>机器上如果有需要保留的数据，已经完成备份。</li>
+        </ul>
+
+        <h3>1.5 先校验，再执行</h3>
+        <p>每次执行前都先点“校验配置”，确认没有错误，再点“开始部署”。不要跳过校验直接执行。</p>
+      </div>
+    </section>
+
+    <section id="ui">
+      <div class="section-head"><span class="section-no">02</span><h2>界面导览</h2></div>
+
+      <div class="card">
+        <h3>2.1 整体布局</h3>
+        <p>主窗口分为左侧导航、中间内容区、底部日志区和最下方状态栏。</p>
+        <pre class="diagram">┌──────────────┬────────────────────────────────────────────┐
+│ 左侧导航      │ 内容区                                      │
+│              │                                            │
+│ 任务总览      │  任务总览 / 分组页 / 部署完成 三种页面       │
+│ 分组 A        │                                            │
+│ 分组 B        │  卡片、任务列表、步骤列表                    │
+│ 部署完成      │                                            │
+│              ├────────────────────────────────────────────┤
+│              │ 运行日志（总览/完成显示全局日志；分组页显示   │
+│              │ 当前任务日志）                               │
+├──────────────┴────────────────────────────────────────────┤
+│ 状态栏：提示文字                    打开执行日志   退出   │
+└───────────────────────────────────────────────────────────┘</pre>
+
+        <h3>2.2 左侧导航</h3>
+        <ul class="clean">
+          <li><strong>任务总览</strong>：查看配置摘要、统计、配置文件选择和任务概况。</li>
+          <li><strong>各分组</strong>：按分组查看任务和步骤；执行时这里会显示实时进度。</li>
+          <li><strong>部署完成</strong>：执行结束后查看成功、失败、未执行和禁用统计；未执行过时点它会回到总览。</li>
+        </ul>
+        <p>每个导航项左侧有状态符号，右侧显示进度。常见符号：</p>
+        <p><span class="status-dot dot-wait">○</span> 等待/未开始　<span class="status-dot dot-run">●</span> 运行中　<span class="status-dot dot-ok">✓</span> 成功　<span class="status-dot dot-fail">×</span> 失败　<span class="status-dot dot-skip">–</span> 未执行/已禁用/已满足</p>
+
+        <h3>2.3 任务总览页</h3>
+        <ul class="clean">
+          <li>顶部显示配置摘要和模式提示：执行模式会提示“开始前会显示任务摘要并再次确认；无自动回滚”。</li>
+          <li>三张统计卡片：分组数、任务数、步骤数。禁用任务仍计入“任务”总数，但不计入执行进度。</li>
+          <li>“配置文件”卡片：配置方案下拉、编辑配置、校验配置、开始部署。</li>
+          <li>“校验问题”卡片：有错误或警告时出现，显示具体原因。</li>
+          <li>“任务概况”卡片：按分组列出任务和步骤数量，点分组可进入分组页。</li>
+        </ul>
+
+        <h3>2.4 分组页</h3>
+        <ul class="clean">
+          <li>顶部显示分组名称、进度和状态；执行中会出现“停止部署”按钮。</li>
+          <li>左侧“任务列表”：每个任务的进度和状态；已禁用任务显示“已禁用”。</li>
+          <li>右侧“选中任务”：显示该任务的步骤、步骤类型、状态、耗时和“需重启”提示。</li>
+          <li>底部日志区显示当前选中任务的日志。</li>
+        </ul>
+
+        <h3>2.5 部署完成页</h3>
+        <ul class="clean">
+          <li>五张统计卡片：总任务、成功任务、失败任务、未执行任务、禁用任务。</li>
+          <li>左侧“分组结果”：按分组查看整体状态。</li>
+          <li>右侧“任务结果”：查看每个任务的步骤、状态、原因和耗时。</li>
+        </ul>
+
+        <h3>2.6 底部日志与状态栏</h3>
+        <ul class="clean">
+          <li>“运行日志”区域在总览页和完成页显示全局日志；在分组页显示当前任务日志。</li>
+          <li>日志自动滚动到最新一行；界面只保留最近一段日志，完整记录在日志文件里。</li>
+          <li>右下角“打开执行日志”在日志文件存在时可用；“退出”关闭程序。</li>
+          <li>状态栏左侧显示当前状态或日志路径，右侧是操作按钮。</li>
+        </ul>
+
+        <h3>2.7 按钮什么时候可用</h3>
+        <table>
+          <thead><tr><th>按钮</th><th>可用条件</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr><td>编辑配置</td><td>未在执行、未打开编辑器</td><td>打开配置编辑器；编辑器打开期间不能开始部署。</td></tr>
+            <tr><td>校验配置</td><td>未在执行</td><td>重新读取当前配置并做预检。</td></tr>
+            <tr><td>开始部署</td><td>执行模式、无错误、至少一个启用任务、未打开编辑器</td><td>点击后还会弹出二次确认框。</td></tr>
+            <tr><td>停止部署</td><td>正在执行</td><td>只结束当前步骤和当前任务，不是整体取消队列。</td></tr>
+            <tr><td>打开执行日志</td><td>日志文件存在</td><td>用系统默认程序打开日志。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="flow">
+      <div class="section-head"><span class="section-no">03</span><h2>标准操作流程</h2></div>
+
+      <div class="card">
+        <p>第一次在目标机上使用时，按下面的顺序操作。每一步都确认“看到了什么”，再进入下一步。</p>
+
+        <ol class="steps">
+          <li>
+            <strong>解压发布包</strong>
+            <p>把 <code>IPCDeployment-1.0.0-win-x64.zip</code> 解压到可写目录。确认目录里有 <code>IPCDeployment.exe</code>、<code>config\</code>、<code>data\</code>、<code>使用说明.md</code>、<code>XML配置说明.md</code>，以及发布时生成的 <code>操作手册.pdf</code>。</p>
+          </li>
+          <li>
+            <strong>双击启动并确认 UAC</strong>
+            <p>双击 <code>IPCDeployment.exe</code>，在 Windows UAC 提示中点“是”。如果点“否”，程序仍能打开，但部署会因缺少管理员权限被预检拦住。</p>
+          </li>
+          <li>
+            <strong>确认配置方案</strong>
+            <p>“任务总览” → “配置文件” → 下拉框，选择 <code>标准配置（config.xml）</code>。标准包通常只有这一项；如果下拉里还有其他配置，先确认现场要求再选。</p>
+          </li>
+          <li>
+            <strong>点击“校验配置”</strong>
+            <p>程序会重新读取 XML、检查结构、检查管理员权限、检查源文件和运行条件。校验完成后，查看“校验问题”卡片和任务概况。</p>
+          </li>
+          <li>
+            <strong>阅读预检结果和任务摘要</strong>
+            <p>没有“错误”才继续；“警告”可以先确认原因。重点看分组数、任务数、步骤数，以及哪些任务显示“已禁用”。</p>
+          </li>
+          <li>
+            <strong>点击“开始部署”并二次确认</strong>
+            <p>确认框会列出配置名、分组数、启用任务数、禁用任务数和步骤数，并提示“没有自动回滚”。确认无误后点“确认执行”；不确定就点“取消”。</p>
+          </li>
+          <li>
+            <strong>观察执行进度</strong>
+            <p>界面会自动跳到当前分组。看左侧任务列表和右侧步骤列表：当前任务显示“运行中”，步骤显示“成功 / 失败 / 已满足 / 未执行”，右侧显示耗时。</p>
+          </li>
+          <li>
+            <strong>查看执行结果</strong>
+            <p>结束后自动进入“部署完成”。先看五张统计卡片，再点左侧分组、右侧任务，定位失败步骤和原因。</p>
+          </li>
+          <li>
+            <strong>按提示重启</strong>
+            <p>步骤或任务显示“需重启”时，按现场要求重启。重启后再打开程序，重新校验并检查未完成的任务。</p>
+          </li>
+        </ol>
+
+        <div class="note">
+          <b>只做一次的动作：</b>确认配置、校验、二次确认都不能省。校验通过不代表部署一定成功，它只说明配置和当前运行条件没有发现明显问题。
+        </div>
+      </div>
+    </section>
+
+    <section id="pages">
+      <div class="section-head"><span class="section-no">04</span><h2>页面与控件详解</h2></div>
+
+      <div class="card">
+        <h3>4.1 “校验配置”检查什么</h3>
+        <ul class="clean">
+          <li>XML 结构、元素和属性是否合法，文件路径是否越界。</li>
+          <li>安装包、复制源文件和命令文件是否存在。</li>
+          <li>是否以管理员身份运行。</li>
+          <li>日志目录是否可写。</li>
+          <li>安装包哈希（配置里写了哈希时）。</li>
+          <li>网卡、服务、自启目标等运行期条件；这些通常以警告提示，最终以执行结果为准。</li>
+          <li>禁用任务不参与运行期预检；它们仍会做结构校验。</li>
+        </ul>
+
+        <h3>4.2 错误与警告的区别</h3>
+        <table>
+          <thead><tr><th>类型</th><th>界面显示</th><th>能否开始</th><th>怎么处理</th></tr></thead>
+          <tbody>
+            <tr><td>错误</td><td>“错误 · …”</td><td>不能</td><td>按提示修正配置、文件路径或权限，再校验。</td></tr>
+            <tr><td>警告</td><td>“警告 · …”</td><td>可以</td><td>确认原因；常见于服务尚未创建、自启目标稍后才安装等。</td></tr>
+            <tr><td>通过</td><td>“配置校验通过。”</td><td>可以</td><td>仍要在二次确认框里核对摘要。</td></tr>
+          </tbody>
+        </table>
+
+        <h3>4.3 分组页的状态</h3>
+        <table>
+          <thead><tr><th>符号</th><th>文字</th><th>含义</th></tr></thead>
+          <tbody>
+            <tr><td><span class="status-dot dot-wait">○</span></td><td>等待</td><td>还没开始。</td></tr>
+            <tr><td><span class="status-dot dot-run">●</span></td><td>运行中 / 进行中</td><td>当前任务或步骤正在执行。</td></tr>
+            <tr><td><span class="status-dot dot-ok">✓</span></td><td>成功</td><td>所有步骤完成。</td></tr>
+            <tr><td><span class="status-dot dot-fail">×</span></td><td>失败</td><td>有步骤失败，任务提前结束。</td></tr>
+            <tr><td><span class="status-dot dot-skip">–</span></td><td>已满足</td><td>目标状态已经存在，没有重复执行。</td></tr>
+            <tr><td><span class="status-dot dot-skip">–</span></td><td>未执行</td><td>前面步骤失败或任务被停止，这一步没有跑。</td></tr>
+            <tr><td><span class="status-dot dot-skip">–</span></td><td>已禁用</td><td>配置里 <code>enabled="false"</code>，任务不执行。</td></tr>
+            <tr><td><span class="status-dot dot-skip">■</span></td><td>已取消</td><td>用户停止或关闭程序导致的结束。</td></tr>
+          </tbody>
+        </table>
+
+        <h3>4.4 步骤类型标识</h3>
+        <p>步骤名称下方会显示类型：<span class="tag tag-blue">安装</span> <span class="tag">复制</span> <span class="tag">注册表</span> <span class="tag">服务</span> <span class="tag">网络</span> <span class="tag">电源</span> <span class="tag">自启</span> <span class="tag">延时</span>，命令类步骤显示 <span class="tag tag-blue">EXE</span>、<span class="tag tag-blue">CMD</span> 或 <span class="tag tag-blue">PowerShell</span>。</p>
+        <p>类型只帮助识别步骤做什么，不影响操作；一线人员主要看状态、耗时和“需重启”。</p>
+
+        <h3>4.5 结果页的统计</h3>
+        <table>
+          <thead><tr><th>卡片</th><th>含义</th></tr></thead>
+          <tbody>
+            <tr><td>总任务</td><td>配置里的全部任务数，包含禁用任务。</td></tr>
+            <tr><td>成功任务</td><td>所有步骤完成的任务。</td></tr>
+            <tr><td>失败任务</td><td>有步骤失败、提前结束的任务。</td></tr>
+            <tr><td>未执行任务</td><td>因停止或取消而没有开始的任务。</td></tr>
+            <tr><td>禁用任务</td><td>配置里标记为禁用的任务，不执行、不计进度。</td></tr>
+          </tbody>
+        </table>
+
+        <h3>4.6 日志显示规则</h3>
+        <ul class="clean">
+          <li>总览页和部署完成页：显示全局日志。</li>
+          <li>分组页：显示当前选中任务的日志；切换任务会切换日志内容。</li>
+          <li>日志行带时间、级别和步骤标识；敏感字段（如 password、token）会被替换为 <code>***</code>。</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="standard">
+      <div class="section-head"><span class="section-no">05</span><h2>标准配置包含什么</h2></div>
+
+      <div class="card">
+        <p>标准配置分为“软件安装”和“系统优化”两个分组，另有一个默认禁用的数据库任务。实际任务名称和数量以界面为准。</p>
+
+        <h3>5.1 软件安装</h3>
+        <table>
+          <thead><tr><th>任务</th><th>做什么</th><th>现场注意</th></tr></thead>
+          <tbody>
+            <tr><td>ImageViewer</td><td>静默安装 ImageViewer。</td><td>默认安装目录已有 <code>ImageViewer.exe</code> 时跳过。</td></tr>
+            <tr><td>ImageDataViewer</td><td>静默安装 ImageDataViewer，并在公共桌面创建快捷方式。</td><td>默认安装目录已有程序时跳过安装。</td></tr>
+            <tr><td>日志分析工具</td><td>解压 Jinovision 日志分析工具，并在公共桌面创建快捷方式。</td><td>目标目录已存在时按脚本判断，不需要手工干预。</td></tr>
+            <tr><td>ApowerREC</td><td>解压到 <code>C:\Program Files</code>，创建公共桌面快捷方式。</td><td>不设置开机自启。</td></tr>
+            <tr><td>Snipaste</td><td>解压到 <code>C:\Program Files</code>，创建公共桌面快捷方式。</td><td>不设置开机自启。</td></tr>
+            <tr><td>MSI Afterburner</td><td>安装 MSI Afterburner，并创建登录时运行的计划任务。</td><td>不包含显卡锁频 Profile；需要锁频时另行配置。</td></tr>
+            <tr><td>Wireshark</td><td>静默安装 Wireshark。</td><td>可能连带安装 Npcap；以安装程序提示和结果为准。</td></tr>
+            <tr><td>Process Explorer</td><td>解压到 <code>C:\Program Files</code>，创建公共桌面快捷方式。</td><td>首次启动会弹许可协议，属正常现象。</td></tr>
+            <tr><td>Everything</td><td>静默安装 Everything。</td><td>使用 x86 安装包；按默认目录判断是否已安装。</td></tr>
+          </tbody>
+        </table>
+
+        <h3>5.2 系统优化</h3>
+        <table>
+          <thead><tr><th>任务</th><th>做什么</th><th>现场注意</th></tr></thead>
+          <tbody>
+            <tr><td>高性能与大小核</td><td>切换高性能电源计划，设置大小核异类调度策略。</td><td>目标机需要暴露对应的异类电源设置；不支持时会失败并提示。</td></tr>
+            <tr><td>关闭 Windows Defender</td><td>通过本地组策略和 <code>Set-MpPreference</code> 关闭实时保护。</td><td>开启篡改保护或安装火绒、360 等第三方杀毒软件时可能被拦截。</td></tr>
+          </tbody>
+        </table>
+
+        <h3>5.3 数据库任务（默认禁用）</h3>
+        <p>标准配置包含一个 MySQL 任务，默认不执行，界面显示“已禁用”。启用方法和行为见下一节。</p>
+        <div class="warn">
+          如果当前配置版本里看不到数据库任务，说明该版本尚未包含它，不影响其他任务；不要为了“补任务”手工改配置，先联系配置维护人员。
+        </div>
+
+        <h3>5.4 标准配置不包含的内容</h3>
+        <ul class="clean">
+          <li>ImageViewer / ImageDataViewer 的规则包导入。</li>
+          <li>HeidiSQL 数据库客户端。</li>
+          <li>JinoVision 共享库和 MySqlConnector.dll 复制。</li>
+          <li>业务数据库（如 inovance、bmian）的创建。</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="database">
+      <div class="section-head"><span class="section-no">06</span><h2>禁用任务与 MySQL</h2></div>
+
+      <div class="card">
+        <h3>6.1 “已禁用”在界面上的表现</h3>
+        <ul class="clean">
+          <li>总览页的任务概况和分组页的任务列表显示“已禁用”。</li>
+          <li>该任务的步骤显示“已禁用”，不会出现“运行中”。</li>
+          <li>不执行、不产生执行步骤结果、不计入执行进度。</li>
+          <li>确认框会单独提示“另 N 个任务已禁用，不执行”。</li>
+          <li>结果页把它计入“禁用任务”卡片，但不计入成功或失败。</li>
+        </ul>
+
+        <h3>6.2 启用数据库任务</h3>
+        <h4>方法一：用配置编辑器</h4>
+        <ol class="steps">
+          <li><strong>打开编辑器</strong><p>总览页点“编辑配置”。编辑器会以非模态窗口打开。</p></li>
+          <li><strong>选中数据库任务</strong><p>左侧结构树展开“数据库”分组，点“MySQL 数据库”任务。</p></li>
+          <li><strong>勾选“启用任务”</strong><p>右侧字段区找到“启用任务”，勾选。</p></li>
+          <li><strong>保存</strong><p>点“保存”或按 <span class="kbd">Ctrl</span> + <span class="kbd">S</span>。保存后主界面会自动重新加载配置。</p></li>
+          <li><strong>重新校验</strong><p>回到主界面点“校验配置”，确认没有错误，再开始部署。</p></li>
+        </ol>
+
+        <h4>方法二：直接改 XML</h4>
+        <p>用文本编辑器打开 <code>config/config.xml</code>，找到数据库任务，把：</p>
+        <pre class="code">&lt;Task key="..." name="..." enabled="false"&gt;</pre>
+        <p>改成删除 <code>enabled="false"</code>，或改为 <code>enabled="true"</code>。保存后回到程序点“校验配置”。</p>
+        <div class="warn">
+          改 XML 前先备份原文件。不要在程序执行期间修改配置；改完必须重新校验。
+        </div>
+
+        <h3>6.3 启用后会发生什么</h3>
+        <table>
+          <thead><tr><th>场景</th><th>行为</th></tr></thead>
+          <tbody>
+            <tr><td>目标机没有 MySQL</td><td>用默认安装位置安装 MySQL 8.4.7，初始化默认数据目录并启动服务。</td></tr>
+            <tr><td>目标机已有 MySQL 服务或默认数据目录</td><td>检测到已存在后<strong>整组跳过</strong>：不卸载、不删除目录、不清空数据、不重新初始化。</td></tr>
+            <tr><td>安装完成</td><td>注册并启动 <code>MySQL84</code> 服务；设置 <code>root/root</code>、创建 <code>root@'%'</code>、开放防火墙 3306。</td></tr>
+            <tr><td>业务数据库</td><td>标准配置<strong>不创建</strong> inovance、bmian 等业务库；由现场或后续配置处理。</td></tr>
+          </tbody>
+        </table>
+
+        <h4>默认位置</h4>
+        <ul class="clean">
+          <li>程序目录：<code>C:\Program Files\MySQL\MySQL Server 8.4</code></li>
+          <li>数据目录：<code>C:\ProgramData\MySQL\MySQL Server 8.4\Data</code></li>
+          <li>服务名：<code>MySQL84</code>；端口：<code>3306</code></li>
+        </ul>
+
+        <div class="danger">
+          <b>安全提醒：</b>启用数据库任务后，默认账号是 <code>root/root</code>，并且开放局域网 3306。部署完成后必须立即修改 root 密码，并确认防火墙只对需要的网段开放。不要把 <code>root/root</code> 留在生产机上。
+        </div>
+
+        <div class="note">
+          <b>已有数据的机器：</b>程序不会主动删除 MySQL 数据，但数据库任务启用后仍会安装或配置服务。执行前先备份数据库，并在任务摘要里确认“MySQL 数据库”确实是需要的。
+        </div>
+
+        <h3>6.4 判断数据库任务是否真的执行了</h3>
+        <ul class="clean">
+          <li>分组页里“MySQL 数据库”任务的状态：成功、失败或已满足。</li>
+          <li>步骤列表里“安装/配置”步骤的状态和耗时。</li>
+          <li>日志里搜索 <code>MySQL</code>，确认是“已存在，跳过”还是“安装/配置完成”。</li>
+          <li>结束后打开“部署完成”，查看该任务是否有失败步骤或“需重启”。</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="stop">
+      <div class="section-head"><span class="section-no">07</span><h2>停止、关闭与异常处理</h2></div>
+
+      <div class="card">
+        <h3>7.1 点击“停止部署”</h3>
+        <p>执行中分组页顶部会出现“停止部署”。点击后弹出确认框，提示：</p>
+        <div class="warn">“停止当前步骤并结束当前任务？剩余步骤将标记为未执行；已完成的更改不会自动回滚，可能留下部分更改。”</div>
+        <ul class="clean">
+          <li>点“停止部署”：结束当前步骤和当前任务，剩余步骤标记“未执行”。</li>
+          <li>点“继续运行”：回到执行状态。</li>
+          <li>停止不是“撤销”。已经安装的软件、写过的注册表、改过的系统设置都会保留。</li>
+        </ul>
+
+        <h3>7.2 执行中关闭窗口</h3>
+        <p>执行中关闭主窗口会弹出“部署正在运行”提示：关闭窗口会停止当前步骤并结束当前任务，剩余步骤标记为未执行，可能留下部分更改。</p>
+        <ul class="clean">
+          <li>点“停止并退出”：停止并关闭程序。</li>
+          <li>点“继续运行”：窗口不关闭，部署继续。</li>
+        </ul>
+
+        <h3>7.3 断电、强杀或系统崩溃</h3>
+        <p>程序没有断点续跑。重新开机后：</p>
+        <ol class="steps">
+          <li><strong>先看日志</strong><p>打开 <code>logs\deploy-*.log</code>，确认最后执行到哪个任务、哪个步骤。</p></li>
+          <li><strong>检查现场</strong><p>确认软件是否已安装、服务是否已创建、数据库是否有数据。</p></li>
+          <li><strong>重新校验</strong><p>打开程序，选择配置，点“校验配置”。</p></li>
+          <li><strong>再决定是否重跑</strong><p>已完成的安装步骤通常会显示“已满足”并跳过；数据库任务检测到已有实例也会跳过。仍要先确认任务摘要。</p></li>
+        </ol>
+
+        <h3>7.4 任务失败后会发生什么</h3>
+        <ul class="clean">
+          <li>当前任务立即结束，剩余步骤标记“未执行”。</li>
+          <li>程序继续执行下一个任务，后面的分组不受影响。</li>
+          <li>没有“整体部署失败”状态，也没有自动回滚。</li>
+          <li>失败原因显示在步骤详情和日志里；修好原因后可以重新校验并重跑。</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="result">
+      <div class="section-head"><span class="section-no">08</span><h2>结果判定与报告解读</h2></div>
+
+      <div class="card">
+        <h3>8.1 状态含义</h3>
+        <table>
+          <thead><tr><th>状态</th><th>含义</th><th>你需要做什么</th></tr></thead>
+          <tbody>
+            <tr><td>成功</td><td>步骤或任务正常完成。</td><td>继续看下一项。</td></tr>
+            <tr><td>失败</td><td>步骤返回失败，或校验/运行条件不满足。</td><td>看失败原因和日志，修正后重跑。</td></tr>
+            <tr><td>已满足</td><td>目标已经存在，没有重复执行。</td><td>通常不需要处理；确认是否符合预期。</td></tr>
+            <tr><td>未执行</td><td>前序步骤失败、任务被停止或取消。</td><td>确认是否需要重跑。</td></tr>
+            <tr><td>已禁用</td><td>配置里标记为禁用。</td><td>需要时按第 6 节启用。</td></tr>
+            <tr><td>需重启</td><td>安装程序返回重启相关退出码，或步骤标记需要重启。</td><td>按现场要求重启，再检查。</td></tr>
+          </tbody>
+        </table>
+
+        <h3>8.2 退出码</h3>
+        <ul class="clean">
+          <li><code>0</code>：通常表示成功。</li>
+          <li><code>3010</code>、<code>1641</code>：通常表示成功但需要重启；界面会显示“需重启”。</li>
+          <li>其他退出码：按失败处理，除非配置里明确把它列为可接受。</li>
+        </ul>
+
+        <h3>8.3 报告怎么看</h3>
+        <ol class="steps">
+          <li><strong>先看统计卡片</strong><p>失败任务、未执行任务是否为零；禁用任务是否符合预期。</p></li>
+          <li><strong>再看分组结果</strong><p>找到带“×”的分组。</p></li>
+          <li><strong>展开任务结果</strong><p>看哪个步骤失败、失败原因、耗时；需要重启的步骤会有标记。</p></li>
+          <li><strong>对照日志</strong><p>日志里有更完整的命令输出和错误信息。</p></li>
+        </ol>
+
+        <h3>8.4 什么时候可以重跑</h3>
+        <ul class="clean">
+          <li>失败原因已经排除，例如补齐文件、关闭杀毒软件、修正配置。</li>
+          <li>目标机状态已经确认，不会因为重复安装造成数据丢失。</li>
+          <li>重新执行前再次“校验配置”，并核对任务摘要。</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="logs">
+      <div class="section-head"><span class="section-no">09</span><h2>日志与反馈</h2></div>
+
+      <div class="card">
+        <h3>9.1 日志位置</h3>
+        <ul class="clean">
+          <li>默认：程序目录 <code>logs\deploy-时间戳.log</code>。</li>
+          <li>程序目录不可写时：回退到 <code>%TEMP%\IPCDeployment\logs</code>。</li>
+          <li>状态栏或“部署完成”页会显示本次日志路径。</li>
+          <li>点“打开执行日志”用系统默认程序打开；日志文件不存在时按钮不可用。</li>
+        </ul>
+
+        <h3>9.2 日志里能看什么</h3>
+        <ul class="clean">
+          <li>配置路径和模式（execute / preview）。</li>
+          <li>校验错误、警告和预检结果。</li>
+          <li>每个步骤的开始、结束、退出码和输出。</li>
+          <li>任务失败原因、未执行步骤和重启提示。</li>
+          <li>敏感字段会被脱敏为 <code>***</code>。</li>
+        </ul>
+
+        <h3>9.3 反馈问题时附上什么</h3>
+        <ul class="clean">
+          <li>日志文件：<code>logs\deploy-*.log</code>。</li>
+          <li>出问题的配置文件名和任务名。</li>
+          <li>现象：哪一步失败、界面提示什么、是否重启过。</li>
+          <li>目标机系统版本、是否管理员运行、是否安装第三方杀毒软件。</li>
+        </ul>
+        <div class="note">
+          不要把整个程序目录打包发出去；只需要日志、配置文件和现象说明。配置里如果写了密码等敏感信息，发送前先确认。
+        </div>
+      </div>
+    </section>
+
+    <section id="faq" class="faq">
+      <div class="section-head"><span class="section-no">10</span><h2>常见问题</h2></div>
+
+      <div class="card">
+        <h3>UAC 点了“否”，还能部署吗？</h3>
+        <p>不能。预检会提示未以管理员身份运行。关闭程序，右键 <code>IPCDeployment.exe</code> 选择“以管理员身份运行”。</p>
+
+        <h3>“开始部署”是灰的</h3>
+        <p>常见原因：当前是 preview 模式、校验有错误、所有任务都被禁用、配置编辑器还开着、或者正在执行。先看“校验问题”和状态栏提示。</p>
+
+        <h3>校验提示找不到文件</h3>
+        <p>确认发布包解压完整，<code>data\software</code>、<code>data\files</code> 下的文件没有被杀毒软件隔离，也没有手工移动过。</p>
+
+        <h3>任务显示“已禁用”，是不是坏了？</h3>
+        <p>不是。配置里写了 <code>enabled="false"</code>。它不执行、不计进度。需要时按第 6 节启用。</p>
+
+        <h3>关闭 Defender 失败</h3>
+        <p>先关闭 Windows 安全中心的“篡改保护”；如果安装了火绒、360 等第三方杀毒软件，先退出或卸载，再重试。策略被拦截时任务会失败并提示。</p>
+
+        <h3>Wireshark 安装很慢或弹出 Npcap</h3>
+        <p>Wireshark 可能连带安装 Npcap，安装时间会更长。等待步骤结束；如果弹出交互窗口，按现场要求处理。</p>
+
+        <h3>Process Explorer 首次启动弹协议</h3>
+        <p>正常现象，接受许可后即可使用。</p>
+
+        <h3>MSI Afterburner 装完没有锁频</h3>
+        <p>标准配置只安装程序并创建登录自启计划任务，不包含显卡锁频 Profile。需要锁频时由后续配置或人工设置。</p>
+
+        <h3>数据库任务启用了，但提示已满足</h3>
+        <p>目标机已有 MySQL 服务或默认数据目录，程序按“存在就跳过”处理，不会删除或覆盖现有数据。确认现场是否本来就有数据库。</p>
+
+        <h3>MySQL 连不上</h3>
+        <p>确认 <code>MySQL84</code> 服务正在运行、防火墙 3306 已放行、使用 <code>root/root</code> 和 <code>root@'%'</code>。如果密码已被修改，以现场实际密码为准。</p>
+
+        <h3>日志打不开</h3>
+        <p>日志文件可能已被移动或删除。去 <code>logs</code> 或 <code>%TEMP%\IPCDeployment\logs</code> 找最新的 <code>deploy-*.log</code>。</p>
+
+        <h3>执行到一半停电了</h3>
+        <p>按第 7.3 节处理：先看日志和现场状态，再重新校验、确认任务摘要后重跑。程序没有断点续跑，也没有自动回滚。</p>
+      </div>
+    </section>
+
+    <section id="safety">
+      <div class="section-head"><span class="section-no">11</span><h2>安全红线</h2></div>
+
+      <div class="card">
+        <div class="danger">
+          <b>以下操作不要做：</b>
+        </div>
+        <ul class="clean">
+          <li>不要在部署运行中强杀进程、拔电或强制重启，除非现场已经无法继续。</li>
+          <li>不要在未核对配置和任务摘要时点“确认执行”。</li>
+          <li>不要在需要保留数据的机器上盲目启用数据库任务；先备份。</li>
+          <li>不要从只读目录、压缩包预览窗口或网络只读共享直接运行。</li>
+          <li>不要随意修改已经验收的配置文件；确需修改时先备份，再校验。</li>
+          <li>不要把 <code>root/root</code> 和开放 3306 的状态留在生产机上。</li>
+          <li>不要用“重跑”代替排查；重复执行可能重复安装或重复修改系统设置。</li>
+        </ul>
+
+        <div class="ok">
+          <b>推荐做法：</b>每次执行前备份配置和日志；执行后核对统计卡片、失败步骤和“需重启”；把日志和现象一起反馈。
+        </div>
+      </div>
+    </section>
+
+    <section id="glossary">
+      <div class="section-head"><span class="section-no">12</span><h2>术语表</h2></div>
+
+      <div class="card">
+        <table>
+          <thead><tr><th>术语</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr><td>配置方案</td><td><code>config</code> 目录下的一份 XML；下拉显示为“名称（文件名）”。</td></tr>
+            <tr><td>分组 Group</td><td>任务的集合，例如“软件安装”“系统优化”。</td></tr>
+            <tr><td>任务 Task</td><td>一组按顺序执行的步骤；可以整体禁用。</td></tr>
+            <tr><td>步骤 Step</td><td>最小执行单元，例如安装、复制、写注册表、运行命令。</td></tr>
+            <tr><td>预检 / 校验</td><td>执行前检查配置结构、文件、权限和运行条件。</td></tr>
+            <tr><td>二次确认</td><td>点“开始部署”后弹出的摘要确认框；确认后才真正执行。</td></tr>
+            <tr><td>已禁用</td><td>任务带 <code>enabled="false"</code>，不执行、不计进度。</td></tr>
+            <tr><td>未执行</td><td>因前序失败或停止而没有运行的步骤/任务。</td></tr>
+            <tr><td>已满足</td><td>目标状态已存在，步骤跳过重复操作。</td></tr>
+            <tr><td>需重启</td><td>安装程序返回重启相关退出码，或步骤要求重启。</td></tr>
+            <tr><td>全局日志</td><td>整次部署的日志；总览页和完成页显示。</td></tr>
+            <tr><td>任务日志</td><td>当前选中任务的日志；分组页显示。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="appendix">
+      <div class="section-head"><span class="section-no">13</span><h2>附录</h2></div>
+
+      <div class="card">
+        <h3>13.1 配置编辑器快速上手（进阶）</h3>
+        <p>配置编辑器用于查看和修改 XML，不是日常部署的必经步骤。打开后主界面会暂时不能开始部署，保存后自动重新加载。</p>
+        <ul class="clean">
+          <li>顶部：配置下拉、新建、保存、另存为、当前文件路径、模式标记、问题数量。</li>
+          <li>左侧：搜索框和结构树；右键可新增分组/任务/步骤、上移、下移、删除。</li>
+          <li>右侧：选中节点的字段区；字段下方会显示校验错误。</li>
+          <li>底部：保存状态、快捷键提示；有错误时出现“问题”面板，点条目可定位节点。</li>
+        </ul>
+
+        <h3>13.2 常用快捷键</h3>
+        <table>
+          <thead><tr><th>快捷键</th><th>作用</th></tr></thead>
+          <tbody>
+            <tr><td><span class="kbd">Ctrl</span> + <span class="kbd">S</span></td><td>保存当前配置。</td></tr>
+            <tr><td><span class="kbd">Ctrl</span> + <span class="kbd">N</span></td><td>新建配置。</td></tr>
+            <tr><td><span class="kbd">Alt</span> + <span class="kbd">↑</span> / <span class="kbd">↓</span></td><td>上移 / 下移节点。</td></tr>
+            <tr><td><span class="kbd">Del</span></td><td>删除选中节点。</td></tr>
+            <tr><td><span class="kbd">Ctrl</span> + <span class="kbd">F</span></td><td>聚焦搜索框。</td></tr>
+            <tr><td><span class="kbd">Esc</span></td><td>清空搜索。</td></tr>
+          </tbody>
+        </table>
+
+        <h3>13.3 程序目录结构</h3>
+        <pre class="code">IPCDeployment/
+  IPCDeployment.exe          主程序（依赖 DLL 已内嵌）
+  使用说明.md               简明使用说明
+  操作手册.pdf              本手册的 PDF 版本（发布包内）
+  XML配置说明.md            XML 配置详细说明
+  config/
+    config.xml              标准配置（启动默认加载）
+    config.sample.xml       示例配置（不参与选择）
+  data/
+    software/               安装包、便携软件 zip
+    files/                  复制源文件
+    commands/               自定义命令、LGPO.exe
+  logs/                     运行时生成</pre>
+
+        <h3>13.4 需要修改配置时</h3>
+        <p>阅读根目录 <code>XML配置说明.md</code>。它包含元素、属性、路径规则和生成配置的检查清单。修改后必须重新校验，并在代表性机器上确认。</p>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <p>工控机部署工具（IPCDeployment）· 一线操作手册（标准模式）</p>
+      <p>适用于标准配置包 <code>config/config.xml</code>。界面和任务以实际运行版本为准；本手册不包含截图，发布时转换为 PDF 随包分发。</p>
+      <a class="top-link" href="#top">回到顶部 ↑</a>
+    </footer>
+  </main>
+</div>
+
+<script>
+  (function () {
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('#navList a'));
+    var search = document.getElementById('navSearch');
+    var hint = document.getElementById('navSearchHint');
+    var sections = navLinks
+      .map(function (link) {
+        var id = link.getAttribute('href').slice(1);
+        return document.getElementById(id);
+      })
+      .filter(Boolean);
+
+    function setActive(id) {
+      navLinks.forEach(function (link) {
+        link.classList.toggle('active', link.getAttribute('href') === '#' + id);
+      });
+    }
+
+    if ('IntersectionObserver' in window) {
+      var observer = new IntersectionObserver(function (entries) {
+        var visible = entries
+          .filter(function (entry) { return entry.isIntersecting; })
+          .sort(function (a, b) { return a.boundingClientRect.top - b.boundingClientRect.top; });
+        if (visible.length > 0) {
+          setActive(visible[0].target.id);
+        }
+      }, { rootMargin: '-12% 0px -70% 0px', threshold: [0, 1] });
+      sections.forEach(function (section) { observer.observe(section); });
+    }
+
+    if (search) {
+      search.addEventListener('input', function () {
+        var keyword = search.value.trim().toLowerCase();
+        var matched = 0;
+        navLinks.forEach(function (link) {
+          var text = link.textContent.toLowerCase();
+          var show = keyword === '' || text.indexOf(keyword) !== -1;
+          link.parentElement.style.display = show ? '' : 'none';
+          if (show) { matched++; }
+        });
+        hint.textContent = keyword === ''
+          ? '输入章节关键词快速定位'
+          : (matched > 0 ? '匹配 ' + matched + ' 个章节' : '没有匹配的章节');
+      });
+
+      search.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+          search.value = '';
+          search.dispatchEvent(new Event('input'));
+          search.blur();
+        }
+      });
+
+      document.addEventListener('keydown', function (event) {
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {
+          event.preventDefault();
+          search.focus();
+          search.select();
+        }
+      });
+    }
+  })();
+</script>
+</body>
+</html>
